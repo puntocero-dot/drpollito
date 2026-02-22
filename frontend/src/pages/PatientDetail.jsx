@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
-import api from '../services/api'
+import api, { BACKEND_URL } from '../services/api'
 import { useAuth } from '../context/AuthContext'
 import {
   ArrowLeft, User, Calendar, Phone, Mail, AlertTriangle,
@@ -1061,7 +1061,7 @@ function LabExamCard({ exam, onRefresh }) {
         <div className="flex items-center gap-2">
           {exam.fileUrl && (
             <a
-              href={`http://localhost:3001${exam.fileUrl}`}
+              href={`${BACKEND_URL}${exam.fileUrl}`}
               target="_blank"
               rel="noopener noreferrer"
               className="btn-secondary text-sm px-3 py-1"
