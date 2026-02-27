@@ -609,13 +609,13 @@ INSERT INTO doctors (id, user_id, clinic_id, medical_license, specialty) VALUES
 
 -- Secretary user (password: 123456)
 INSERT INTO users (id, email, password_hash, role, first_name, last_name, phone) VALUES
-    ('ssssssss-ssss-ssss-ssss-ssssssssssss', 'secretaria@mydr.com', '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZRGdjGj/n3.Q7cfxe0SZGQB8dG9Km', 'secretary', 'Ana', 'Martínez', '7777-0003');
+    ('cccccccc-cccc-cccc-cccc-cccccccccccc', 'secretaria@mydr.com', '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZRGdjGj/n3.Q7cfxe0SZGQB8dG9Km', 'secretary', 'Ana', 'Martínez', '7777-0003');
 
 INSERT INTO secretaries (id, user_id) VALUES
-    ('s1111111-1111-1111-1111-111111111111', 'ssssssss-ssss-ssss-ssss-ssssssssssss');
+    ('c1111111-1111-1111-1111-111111111111', 'cccccccc-cccc-cccc-cccc-cccccccccccc');
 
 INSERT INTO secretary_clinics (secretary_id, clinic_id) VALUES
-    ('s1111111-1111-1111-1111-111111111111', '11111111-1111-1111-1111-111111111111');
+    ('c1111111-1111-1111-1111-111111111111', '11111111-1111-1111-1111-111111111111');
 
 -- National vaccination schedule (El Salvador)
 INSERT INTO vaccines (name, abbreviation, disease_prevented, recommended_ages_months, dose_number) VALUES
