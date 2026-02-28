@@ -322,7 +322,7 @@ function AdvancedSilhouetteView({ current, previous, ideal, healthStatus, transf
   )
 }
 
-// Premium Blueprint silhouette with technical/visionary look
+// Medical Formal silhouette: clean, solid shapes with soft gradients
 function FriendlyChildSilhouette({
   heightScale = 1,
   widthScale = 1,
@@ -340,133 +340,112 @@ function FriendlyChildSilhouette({
   const torsoWidth = 22 + (bodyFat * 12) + (abdominal * 6)
   const headSize = 18 + (bodyFat * 3)
 
-  const strokeColor = isGhost ? '#94a3b8' : color
-  const fillColor = isGhost ? 'none' : `${color}15` // Very transparent fill
-  const glowColor = isGhost ? 'none' : color
+  const strokeColor = isGhost ? '#cbd5e1' : (isIdeal ? '#22c55e' : color)
+  const fillColor = isGhost ? 'none' : (isIdeal ? '#22c55e' : color)
+  const opacity = isGhost ? 0.3 : (isIdeal ? 0.6 : 1)
 
   return (
     <svg
       width={width}
       height={height}
       viewBox="0 0 100 160"
-      className="transition-all duration-1000 ease-in-out"
-      style={{
-        filter: !isGhost ? `drop-shadow(0 0 8px ${glowColor}40)` : 'none'
-      }}
+      className="transition-all duration-1000 ease-in-out drop-shadow-sm"
     >
       <defs>
-        <linearGradient id={`grad-${color.replace('#', '')}`} x1="0%" y1="0%" x2="0%" y2="100%">
-          <stop offset="0%" stopColor={color} stopOpacity="0.4" />
-          <stop offset="100%" stopColor={color} stopOpacity="0.05" />
+        <linearGradient id={`formal-grad-${color.replace('#', '')}`} x1="0%" y1="0%" x2="0%" y2="100%">
+          <stop offset="0%" stopColor={color} stopOpacity="0.9" />
+          <stop offset="100%" stopColor={color} stopOpacity="0.7" />
         </linearGradient>
-
-        {!isGhost && (
-          <filter id="glow">
-            <feGaussianBlur stdDeviation="1.5" result="coloredBlur" />
-            <feMerge>
-              <feMergeNode in="coloredBlur" />
-              <feMergeNode in="SourceGraphic" />
-            </feMerge>
-          </filter>
-        )}
+        <linearGradient id="ideal-grad" x1="0%" y1="0%" x2="0%" y2="100%">
+          <stop offset="0%" stopColor="#22c55e" stopOpacity="0.5" />
+          <stop offset="100%" stopColor="#22c55e" stopOpacity="0.3" />
+        </linearGradient>
       </defs>
 
-      <g opacity={isGhost ? 0.3 : 1}>
-        {/* Head Contour */}
-        <path
-          d={`M 50,5 
-             C ${50 - headSize},5 ${50 - headSize},35 50,35
-             C ${50 + headSize},35 ${50 + headSize},5 50,5 Z`}
-          fill={!isGhost ? `url(#grad-${color.replace('#', '')})` : 'none'}
+      <g opacity={opacity}>
+        {/* Head */}
+        <circle
+          cx="50" cy="22" r={headSize}
+          fill={isGhost ? 'none' : (isIdeal ? 'url(#ideal-grad)' : `url(#formal-grad-${color.replace('#', '')})`)}
           stroke={strokeColor}
-          strokeWidth={isGhost ? 1 : 1.5}
+          strokeWidth={isGhost ? 1.5 : 0}
           strokeDasharray={isGhost ? "4 4" : "0"}
         />
 
-        {/* Technical crosshair on head */}
-        {!isGhost && (
-          <g opacity="0.4">
-            <line x1="50" y1="10" x2="50" y2="30" stroke={color} strokeWidth="0.5" />
-            <line x1="40" y1="20" x2="60" y2="20" stroke={color} strokeWidth="0.5" />
-          </g>
-        )}
-
-        {/* Torso & Arms - Unified Blueprint Path */}
+        {/* Neck */}
         <path
-          d={`M 50,35 
-             L 50,40
-             M ${50 - torsoWidth},45
-             Q ${50 - torsoWidth - 10},45 50 - torsoWidth - 5,60
-             L ${50 - torsoWidth - 5},85
-             Q ${50 - torsoWidth - 5},95 ${50 - torsoWidth + 5},95
-             L ${50 - 10},95
-             L ${50 - 12},130
-             Q ${50 - 12},140 ${50 - 22},140
-             L ${50 - 22},145
-             M ${50 + torsoWidth},45
-             Q ${50 + torsoWidth + 10},45 50 + torsoWidth + 5,60
-             L ${50 + torsoWidth + 5},85
-             Q ${50 + torsoWidth + 5},95 ${50 + torsoWidth - 5},95
-             L ${50 + 10},95
-             L ${50 + 12},130
-             Q ${50 + 12},140 ${50 + 22},140
-             L ${50 + 22},145`}
+          d="M 46,38 Q 50,42 54,38"
           fill="none"
           stroke={strokeColor}
-          strokeWidth={isGhost ? 1 : 1.5}
-          strokeDasharray={isGhost ? "4 4" : "0"}
+          strokeWidth="2"
+          strokeLinecap="round"
+          opacity="0.5"
         />
 
-        {/* Main Body Mass */}
+        {/* Torso */}
         <path
-          d={`M ${50 - torsoWidth},45
-             C ${50 - torsoWidth - 5},65 ${50 - torsoWidth - 2},95 50,95
-             C ${50 + torsoWidth + 2},95 ${50 + torsoWidth + 5},65 ${50 + torsoWidth},45
+          d={`M ${50 - torsoWidth},45 
+             Q ${50 - torsoWidth},42 50,42 
+             Q ${50 + torsoWidth},42 ${50 + torsoWidth},45 
+             L ${50 + torsoWidth + 2},90 
+             Q ${50 + torsoWidth + 2},100 50,100 
+             Q ${50 - torsoWidth - 2},100 ${50 - torsoWidth - 2},90 
              Z`}
-          fill={!isGhost ? `url(#grad-${color.replace('#', '')})` : 'none'}
+          fill={isGhost ? 'none' : (isIdeal ? 'url(#ideal-grad)' : `url(#formal-grad-${color.replace('#', '')})`)}
           stroke={strokeColor}
-          strokeWidth={isGhost ? 1 : 1.5}
+          strokeWidth={isGhost ? 1.5 : 0}
+          strokeDasharray={isGhost ? "4 4" : "0"}
         />
 
-        {/* Legs Blueprint */}
+        {/* Left Arm */}
         <path
-          d={`M ${50 - 12},95 L ${50 - 15},145 L ${50 - 25},145
-             M ${50 + 12},95 L ${50 + 15},145 L ${50 + 25},145`}
+          d={`M ${50 - torsoWidth},48 
+             Q ${50 - torsoWidth - 12},48 ${50 - torsoWidth - 10},75 
+             Q ${50 - torsoWidth - 8},85 ${50 - torsoWidth},82`}
           fill="none"
           stroke={strokeColor}
-          strokeWidth={isGhost ? 1 : 1.5}
+          strokeWidth="8"
+          strokeLinecap="round"
         />
 
-        {/* Scanning Line Animation */}
-        {!isGhost && !isIdeal && (
-          <line
-            x1="10" x2="90"
-            y1="0" y2="0"
-            stroke={color}
-            strokeWidth="1"
-            opacity="0.6"
-          >
-            <animate
-              attributeName="y1"
-              values="10;150;10"
-              dur="4s"
-              repeatCount="indefinite"
-            />
-            <animate
-              attributeName="y2"
-              values="10;150;10"
-              dur="4s"
-              repeatCount="indefinite"
-            />
-          </line>
-        )}
+        {/* Right Arm */}
+        <path
+          d={`M ${50 + torsoWidth},48 
+             Q ${50 + torsoWidth + 12},48 ${50 + torsoWidth + 10},75 
+             Q ${50 + torsoWidth + 8},85 ${50 + torsoWidth},82`}
+          fill="none"
+          stroke={strokeColor}
+          strokeWidth="8"
+          strokeLinecap="round"
+        />
 
-        {/* Measurement Points */}
+        {/* Left Leg */}
+        <path
+          d={`M ${50 - 12},98 
+             L ${50 - 15},145 
+             Q ${50 - 15},152 ${50 - 25},152`}
+          fill="none"
+          stroke={strokeColor}
+          strokeWidth="10"
+          strokeLinecap="round"
+        />
+
+        {/* Right Leg */}
+        <path
+          d={`M ${50 + 12},98 
+             L ${50 + 15},145 
+             Q ${50 + 15},152 ${50 + 25},152`}
+          fill="none"
+          stroke={strokeColor}
+          strokeWidth="10"
+          strokeLinecap="round"
+        />
+
+        {/* Face details (simple medical icon style) */}
         {!isGhost && (
-          <g>
-            <circle cx="50" cy="5" r="2" fill={color} />
-            <circle cx="50" cy="95" r="2" fill={color} />
-            <circle cx="50" cy="145" r="2" fill={color} />
+          <g opacity="0.6">
+            <circle cx="44" cy="20" r="1.5" fill="white" />
+            <circle cx="56" cy="20" r="1.5" fill="white" />
           </g>
         )}
       </g>

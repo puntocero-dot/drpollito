@@ -432,7 +432,7 @@ router.get('/parents/available', authenticateToken, requireMedicalStaff, async (
       SELECT par.id as parent_id, u.id as user_id, u.first_name, u.last_name, u.phone, u.email, u.dui
       FROM parents par
       JOIN users u ON par.user_id = u.id
-      WHERE u.is_active = true
+      WHERE u.status = 'active'
     `;
     const params = [];
     if (search) {

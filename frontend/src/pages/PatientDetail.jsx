@@ -408,36 +408,7 @@ export default function PatientDetail() {
             </div>
           </div>
 
-          {/* Parents/Contacts */}
-          <div className="card p-6">
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-              Padres/Tutores
-            </h3>
-            {patient.parents?.length > 0 ? (
-              <div className="space-y-3">
-                {patient.parents.map((parent, i) => (
-                  <div key={i} className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
-                    <div className="w-10 h-10 rounded-full bg-primary-100 dark:bg-primary-900 flex items-center justify-center">
-                      <User className="h-5 w-5 text-primary-600" />
-                    </div>
-                    <div className="flex-1">
-                      <p className="font-medium text-gray-900 dark:text-white">
-                        {parent.firstName} {parent.lastName}
-                      </p>
-                      <p className="text-sm text-gray-500">{parent.relationship}</p>
-                    </div>
-                    {parent.phone && (
-                      <a href={`tel:${parent.phone}`} className="p-2 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg">
-                        <Phone className="h-4 w-4 text-gray-500" />
-                      </a>
-                    )}
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <p className="text-gray-500 text-center py-4">Sin tutores registrados</p>
-            )}
-          </div>
+
 
           {/* Recent Consultations */}
           <div className="card p-6 lg:col-span-2">
@@ -533,7 +504,7 @@ export default function PatientDetail() {
                         ))}
                       </div>
                       <button
-                        onClick={() => navigate(`/consultations/${consultation.id}`)}
+                        onClick={() => navigate(`/consultation/${consultation.id}`)}
                         className="p-1.5 text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded"
                         title="Editar consulta"
                       >
