@@ -107,11 +107,6 @@ export default function Login() {
             </button>
           </form>
 
-          {/* Debug info - TEMPORARY */}
-          <div className="mt-4 p-2 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded text-xs text-yellow-700 dark:text-yellow-400 break-all">
-            API: {import.meta.env.VITE_API_URL || 'NOT SET (using localhost:3001)'}
-          </div>
-
           {/* Demo credentials */}
           <div className="mt-6 p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
             <p className="text-xs text-gray-500 dark:text-gray-400 mb-2 font-medium">Credenciales de prueba:</p>

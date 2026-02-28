@@ -62,6 +62,7 @@ CREATE TABLE doctors (
     signature_url TEXT,
     stamp_url TEXT,
     bio TEXT,
+    is_active BOOLEAN DEFAULT TRUE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
@@ -560,6 +561,44 @@ CREATE TABLE growth_measurements (
 );
 
 -- =====================================================
+-- USER PREFERENCES
+-- =====================================================
+
+CREATE TABLE user_preferences (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID UNIQUE NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    preferences JSONB DEFAULT '{}',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- =====================================================
+-- LAB EXAMS
+-- =====================================================
+
+CREATE TABLE lab_exams (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    patient_id UUID NOT NULL REFERENCES patients(id) ON DELETE CASCADE,
+    consultation_id UUID REFERENCES consultations(id),
+    exam_type VARCHAR(100) NOT NULL,
+    exam_name VARCHAR(255) NOT NULL,
+    exam_date DATE DEFAULT CURRENT_DATE,
+    lab_name VARCHAR(255),
+    status VARCHAR(50) DEFAULT 'pending',
+    results JSONB,
+    ai_interpretation TEXT,
+    notes TEXT,
+    file_url TEXT,
+    file_type VARCHAR(100),
+    file_name VARCHAR(255),
+    created_by UUID REFERENCES users(id),
+    reviewed_by UUID REFERENCES users(id),
+    reviewed_at TIMESTAMP,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- =====================================================
 -- INDEXES
 -- =====================================================
 
@@ -587,6 +626,12 @@ CREATE INDEX idx_documents_patient ON documents(patient_id);
 CREATE INDEX idx_audit_logs_user ON audit_logs(user_id);
 CREATE INDEX idx_audit_logs_entity ON audit_logs(entity_type, entity_id);
 CREATE INDEX idx_audit_logs_created ON audit_logs(created_at);
+
+CREATE INDEX idx_lab_exams_patient ON lab_exams(patient_id);
+CREATE INDEX idx_lab_exams_consultation ON lab_exams(consultation_id);
+CREATE INDEX idx_lab_exams_date ON lab_exams(exam_date);
+
+CREATE INDEX idx_user_preferences_user ON user_preferences(user_id);
 
 -- =====================================================
 -- SEED DATA
