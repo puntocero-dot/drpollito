@@ -598,18 +598,18 @@ INSERT INTO clinics (id, name, address, phone, email) VALUES
 
 -- Admin user (password: 123456)
 INSERT INTO users (id, email, password_hash, role, first_name, last_name, phone) VALUES
-    ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'admin@mydr.com', '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZRGdjGj/n3.Q7cfxe0SZGQB8dG9Km', 'admin', 'Admin', 'Sistema', '7777-0001');
+    ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'admin@mydr.com', '$2a$10$A8qO5qCRoSdMVDbTt9vxsey.uZCdoYU3Oi7sE35fS0QFrAIbkr2ty', 'admin', 'Admin', 'Sistema', '7777-0001');
 
 -- Doctor user (password: 123456)
 INSERT INTO users (id, email, password_hash, role, first_name, last_name, phone) VALUES
-    ('dddddddd-dddd-dddd-dddd-dddddddddddd', 'doctor@mydr.com', '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZRGdjGj/n3.Q7cfxe0SZGQB8dG9Km', 'doctor', 'María', 'González', '7777-0002');
+    ('dddddddd-dddd-dddd-dddd-dddddddddddd', 'doctor@mydr.com', '$2a$10$A8qO5qCRoSdMVDbTt9vxsey.uZCdoYU3Oi7sE35fS0QFrAIbkr2ty', 'doctor', 'María', 'González', '7777-0002');
 
 INSERT INTO doctors (id, user_id, clinic_id, medical_license, specialty) VALUES
     ('d1111111-1111-1111-1111-111111111111', 'dddddddd-dddd-dddd-dddd-dddddddddddd', '11111111-1111-1111-1111-111111111111', 'JVPM-12345', 'Pediatría General');
 
 -- Secretary user (password: 123456)
 INSERT INTO users (id, email, password_hash, role, first_name, last_name, phone) VALUES
-    ('cccccccc-cccc-cccc-cccc-cccccccccccc', 'secretaria@mydr.com', '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZRGdjGj/n3.Q7cfxe0SZGQB8dG9Km', 'secretary', 'Ana', 'Martínez', '7777-0003');
+    ('cccccccc-cccc-cccc-cccc-cccccccccccc', 'secretaria@mydr.com', '$2a$10$A8qO5qCRoSdMVDbTt9vxsey.uZCdoYU3Oi7sE35fS0QFrAIbkr2ty', 'secretary', 'Ana', 'Martínez', '7777-0003');
 
 INSERT INTO secretaries (id, user_id) VALUES
     ('c1111111-1111-1111-1111-111111111111', 'cccccccc-cccc-cccc-cccc-cccccccccccc');
