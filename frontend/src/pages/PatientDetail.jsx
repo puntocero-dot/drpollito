@@ -33,6 +33,13 @@ export default function PatientDetail() {
   const [showEditModal, setShowEditModal] = useState(false)
   const [labExams, setLabExams] = useState([])
   const [showLabExamModal, setShowLabExamModal] = useState(false)
+  const [deleteConsultId, setDeleteConsultId] = useState(null)
+  const [deleteConfirmText, setDeleteConfirmText] = useState('')
+  const [showDeleteConsultModal, setShowDeleteConsultModal] = useState(false)
+  const [showParentModal, setShowParentModal] = useState(false)
+  const [availableParents, setAvailableParents] = useState([])
+  const [parentSearch, setParentSearch] = useState('')
+  const [parentRelationship, setParentRelationship] = useState('padre')
 
   useEffect(() => {
     fetchPatientData()
@@ -106,6 +113,51 @@ export default function PatientDetail() {
       alert(error.response?.data?.error || 'Error al eliminar paciente')
     } finally {
       setDeleting(false)
+    }
+  }
+
+  const handleDeleteConsultation = async () => {
+    if (deleteConfirmText !== 'BORRAR') return
+    try {
+      await api.delete(`/consultations/${deleteConsultId}`)
+      setShowDeleteConsultModal(false)
+      setDeleteConsultId(null)
+      setDeleteConfirmText('')
+      fetchPatientData()
+    } catch (error) {
+      console.error('Error deleting consultation:', error)
+      alert('Error al eliminar consulta')
+    }
+  }
+
+  const fetchAvailableParents = async (search = '') => {
+    try {
+      const res = await api.get(`/patients/parents/available${search ? `?search=${search}` : ''}`)
+      setAvailableParents(res.data)
+    } catch (error) {
+      console.error('Error fetching parents:', error)
+    }
+  }
+
+  const handleAssignParent = async (parentId) => {
+    try {
+      await api.post(`/patients/${id}/parents`, {
+        parentId,
+        relationship: parentRelationship
+      })
+      setShowParentModal(false)
+      fetchPatientData()
+    } catch (error) {
+      console.error('Error assigning parent:', error)
+    }
+  }
+
+  const handleRemoveParent = async (parentId) => {
+    try {
+      await api.delete(`/patients/${id}/parents/${parentId}`)
+      fetchPatientData()
+    } catch (error) {
+      console.error('Error removing parent:', error)
     }
   }
 
@@ -248,6 +300,64 @@ export default function PatientDetail() {
         )}
       </div>
 
+      {/* Parents & Guardians Section */}
+      <div className="card p-6">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+            <User className="h-5 w-5 text-primary-600" />
+            Padres y Tutores
+          </h3>
+          <button
+            onClick={() => {
+              setParentSearch('')
+              setAvailableParents([])
+              setShowParentModal(true)
+            }}
+            className="text-primary-600 hover:text-primary-700 text-sm font-medium flex items-center gap-1"
+          >
+            <Plus className="h-4 w-4" />
+            Asignar Padre
+          </button>
+        </div>
+
+        {patient.parents && patient.parents.length > 0 ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {patient.parents.map((p, i) => (
+              <div key={i} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg border border-gray-100 dark:border-gray-600">
+                <div className="flex items-center gap-3">
+                  <div className="h-10 w-10 rounded-full bg-primary-100 dark:bg-primary-900/30 flex items-center justify-center text-primary-700 dark:text-primary-400">
+                    <User className="h-6 w-6" />
+                  </div>
+                  <div>
+                    <p className="font-medium text-gray-900 dark:text-white">
+                      {p.firstName} {p.lastName}
+                    </p>
+                    <p className="text-xs text-primary-600 font-medium capitalize">
+                      {p.relationship} {p.isPrimaryContact && '• Responsable'}
+                    </p>
+                    <div className="flex gap-2 mt-1">
+                      {p.phone && <span className="text-[10px] text-gray-500 flex items-center gap-0.5"><Phone className="h-2.5 w-2.5" /> {p.phone}</span>}
+                      {p.email && <span className="text-[10px] text-gray-500 flex items-center gap-0.5"><Mail className="h-2.5 w-2.5" /> {p.email}</span>}
+                    </div>
+                  </div>
+                </div>
+                <button
+                  onClick={() => handleRemoveParent(p.id)}
+                  className="p-2 text-gray-400 hover:text-red-500 transition-colors"
+                  title="Eliminar asignación"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </button>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="text-center py-6 bg-gray-50 dark:bg-gray-700/30 rounded-lg border border-dashed border-gray-200 dark:border-gray-700">
+            <p className="text-sm text-gray-500">No hay padres o tutores asignados</p>
+          </div>
+        )}
+      </div>
+
       {/* Tabs */}
       <div className="border-b border-gray-200 dark:border-gray-700">
         <nav className="flex gap-4">
@@ -256,8 +366,8 @@ export default function PatientDetail() {
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
               className={`pb-3 px-1 text-sm font-medium border-b-2 transition-colors ${activeTab === tab.id
-                  ? 'border-primary-600 text-primary-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
+                ? 'border-primary-600 text-primary-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
                 }`}
             >
               {tab.label}
@@ -388,8 +498,8 @@ export default function PatientDetail() {
                           {consultation.reasonForVisit || 'Consulta general'}
                         </p>
                         <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${consultation.status === 'completed'
-                            ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
-                            : 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400'
+                          ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
+                          : 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400'
                           }`}>
                           {consultation.status === 'completed' ? 'Completada' : 'En progreso'}
                         </span>
@@ -416,10 +526,30 @@ export default function PatientDetail() {
                         </p>
                       )}
                     </div>
-                    <div className="text-right">
-                      {consultation.diagnosisDescriptions?.map((diag, i) => (
-                        <span key={i} className="badge badge-info ml-1">{diag}</span>
-                      ))}
+                    <div className="flex items-center gap-2">
+                      <div className="text-right mr-2">
+                        {consultation.diagnosisDescriptions?.map((diag, i) => (
+                          <span key={i} className="badge badge-info ml-1">{diag}</span>
+                        ))}
+                      </div>
+                      <button
+                        onClick={() => navigate(`/consultations/${consultation.id}`)}
+                        className="p-1.5 text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded"
+                        title="Editar consulta"
+                      >
+                        <Edit className="h-4 w-4" />
+                      </button>
+                      <button
+                        onClick={() => {
+                          setDeleteConsultId(consultation.id)
+                          setDeleteConfirmText('')
+                          setShowDeleteConsultModal(true)
+                        }}
+                        className="p-1.5 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded"
+                        title="Borrar consulta"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
                     </div>
                   </div>
                   {consultation.treatmentPlan && (
@@ -696,10 +826,10 @@ export default function PatientDetail() {
                           <td className="py-2">
                             {h.metrics?.weight?.percentile ? (
                               <span className={`badge ${h.metrics.weight.percentile < 3 || h.metrics.weight.percentile > 97
-                                  ? 'badge-danger'
-                                  : h.metrics.weight.percentile < 15 || h.metrics.weight.percentile > 85
-                                    ? 'badge-warning'
-                                    : 'badge-success'
+                                ? 'badge-danger'
+                                : h.metrics.weight.percentile < 15 || h.metrics.weight.percentile > 85
+                                  ? 'badge-warning'
+                                  : 'badge-success'
                                 }`}>
                                 P{h.metrics.weight.percentile.toFixed(0)}
                               </span>
@@ -708,10 +838,10 @@ export default function PatientDetail() {
                           <td className="py-2">
                             {h.metrics?.height?.percentile ? (
                               <span className={`badge ${h.metrics.height.percentile < 3 || h.metrics.height.percentile > 97
-                                  ? 'badge-danger'
-                                  : h.metrics.height.percentile < 15 || h.metrics.height.percentile > 85
-                                    ? 'badge-warning'
-                                    : 'badge-success'
+                                ? 'badge-danger'
+                                : h.metrics.height.percentile < 15 || h.metrics.height.percentile > 85
+                                  ? 'badge-warning'
+                                  : 'badge-success'
                                 }`}>
                                 P{h.metrics.height.percentile.toFixed(0)}
                               </span>
@@ -783,6 +913,105 @@ export default function PatientDetail() {
           }}
         />
       )}
+      {/* Delete Consultation Confirmation Modal */}
+      {showDeleteConsultModal && (
+        <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 max-w-md w-full shadow-xl">
+            <h3 className="text-lg font-bold text-red-600 mb-2">⚠️ Eliminar Consulta</h3>
+            <p className="text-gray-600 dark:text-gray-400 mb-4">
+              Esta acción es irreversible. Se eliminarán todos los datos de la consulta, recetas y mediciones.
+            </p>
+            <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              Escribe <span className="text-red-600 font-bold">BORRAR</span> para confirmar:
+            </p>
+            <input
+              type="text"
+              value={deleteConfirmText}
+              onChange={(e) => setDeleteConfirmText(e.target.value)}
+              className="input-field mb-4"
+              placeholder="Escribe BORRAR"
+              autoFocus
+            />
+            <div className="flex gap-3 justify-end">
+              <button
+                onClick={() => { setShowDeleteConsultModal(false); setDeleteConfirmText('') }}
+                className="btn-secondary"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleDeleteConsultation}
+                disabled={deleteConfirmText !== 'BORRAR'}
+                className="px-4 py-2 bg-red-600 text-white rounded-lg disabled:opacity-30 disabled:cursor-not-allowed hover:bg-red-700 transition-colors"
+              >
+                Eliminar Consulta
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Parent Assignment Modal */}
+      {showParentModal && (
+        <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 max-w-lg w-full shadow-xl">
+            <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4">Asignar Padre/Tutor</h3>
+
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Relación</label>
+              <select
+                value={parentRelationship}
+                onChange={(e) => setParentRelationship(e.target.value)}
+                className="input-field"
+              >
+                <option value="padre">Padre</option>
+                <option value="madre">Madre</option>
+                <option value="tutor">Tutor Legal</option>
+                <option value="abuelo">Abuelo/a</option>
+                <option value="otro">Otro</option>
+              </select>
+            </div>
+
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Buscar usuario</label>
+              <input
+                type="text"
+                value={parentSearch}
+                onChange={(e) => {
+                  setParentSearch(e.target.value)
+                  fetchAvailableParents(e.target.value)
+                }}
+                className="input-field"
+                placeholder="Nombre, apellido o DUI..."
+              />
+            </div>
+
+            <div className="max-h-48 overflow-y-auto space-y-2 mb-4">
+              {availableParents.length > 0 ? availableParents.map(p => (
+                <div key={p.parentId} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+                  <div>
+                    <p className="font-medium text-gray-900 dark:text-white">{p.firstName} {p.lastName}</p>
+                    <p className="text-xs text-gray-500">{p.phone || p.email || p.dui || 'Sin contacto'}</p>
+                  </div>
+                  <button
+                    onClick={() => handleAssignParent(p.parentId)}
+                    className="btn-primary text-sm"
+                  >
+                    Asignar
+                  </button>
+                </div>
+              )) : (
+                <p className="text-center text-gray-400 py-4">Busca un usuario con rol "padre" para asignar</p>
+              )}
+            </div>
+
+            <div className="flex justify-end">
+              <button onClick={() => setShowParentModal(false)} className="btn-secondary">Cerrar</button>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   )
 }

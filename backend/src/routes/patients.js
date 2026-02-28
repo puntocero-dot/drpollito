@@ -250,9 +250,9 @@ router.put('/:id', authenticateToken, requireMedicalStaff, async (req, res) => {
         updated_at = CURRENT_TIMESTAMP
        WHERE id = $14
        RETURNING *`,
-      [firstName, lastName, dateOfBirth, gender, bloodType, allergies, chronicConditions, 
-       insuranceProvider, insurancePolicyNumber, notes,
-       birthWeightGrams, birthHeightCm, gestationalWeeks, req.params.id]
+      [firstName, lastName, dateOfBirth, gender, bloodType, allergies, chronicConditions,
+        insuranceProvider, insurancePolicyNumber, notes,
+        birthWeightGrams, birthHeightCm, gestationalWeeks, req.params.id]
     );
 
     await logAudit(req.user.id, 'UPDATE_PATIENT', 'patients', req.params.id, oldResult.rows[0], result.rows[0], req);
@@ -366,12 +366,12 @@ router.delete('/:id', authenticateToken, requireRole('admin'), async (req, res) 
         'UPDATE patients SET is_active = false, updated_at = CURRENT_TIMESTAMP WHERE id = $1',
         [id]
       );
-      
+
       await logAudit(req.user.id, 'SOFT_DELETE_PATIENT', 'patients', id, patient, null, req);
-      
-      return res.json({ 
+
+      return res.json({
         message: 'Paciente desactivado (tiene historial médico)',
-        softDelete: true 
+        softDelete: true
       });
     }
 
@@ -421,6 +421,53 @@ router.get('/:id/growth', authenticateToken, async (req, res) => {
   } catch (error) {
     logger.error('Get growth data error:', error);
     res.status(500).json({ error: 'Failed to get growth data' });
+  }
+});
+
+// Get available parents to assign
+router.get('/parents/available', authenticateToken, requireMedicalStaff, async (req, res) => {
+  try {
+    const { search } = req.query;
+    let sql = `
+      SELECT par.id as parent_id, u.id as user_id, u.first_name, u.last_name, u.phone, u.email, u.dui
+      FROM parents par
+      JOIN users u ON par.user_id = u.id
+      WHERE u.is_active = true
+    `;
+    const params = [];
+    if (search) {
+      sql += ` AND (u.first_name ILIKE $1 OR u.last_name ILIKE $1 OR u.dui ILIKE $1)`;
+      params.push(`%${search}%`);
+    }
+    sql += ` ORDER BY u.last_name, u.first_name LIMIT 20`;
+
+    const result = await query(sql, params);
+    res.json(result.rows.map(r => ({
+      parentId: r.parent_id,
+      userId: r.user_id,
+      firstName: r.first_name,
+      lastName: r.last_name,
+      phone: r.phone,
+      email: r.email,
+      dui: r.dui
+    })));
+  } catch (error) {
+    logger.error('Get available parents error:', error);
+    res.status(500).json({ error: 'Failed to get parents' });
+  }
+});
+
+// Remove parent from patient
+router.delete('/:id/parents/:parentId', authenticateToken, requireMedicalStaff, async (req, res) => {
+  try {
+    await query(
+      'DELETE FROM patient_parents WHERE patient_id = $1 AND parent_id = $2',
+      [req.params.id, req.params.parentId]
+    );
+    res.json({ message: 'Parent removed' });
+  } catch (error) {
+    logger.error('Remove parent error:', error);
+    res.status(500).json({ error: 'Failed to remove parent' });
   }
 });
 

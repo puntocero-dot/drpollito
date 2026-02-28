@@ -163,10 +163,24 @@ router.post('/', authenticateToken, requireRole('doctor', 'admin'), [
   }
 
   const {
-    appointmentId, patientId, doctorId, clinicId, reasonForVisit, symptoms, symptomDuration
+    appointmentId, patientId, doctorId, clinicId, reasonForVisit, symptoms, symptomDuration,
+    consultationDate
   } = req.body;
 
   try {
+    // Check for existing in_progress consultation for same patient today
+    const today = consultationDate || new Date().toISOString().split('T')[0];
+    const existingResult = await query(
+      `SELECT id FROM consultations 
+       WHERE patient_id = $1 AND status = 'in_progress' 
+       AND DATE(consultation_date) = $2
+       ORDER BY created_at DESC LIMIT 1`,
+      [patientId, today]
+    );
+    if (existingResult.rows.length > 0) {
+      return res.json({ id: existingResult.rows[0].id, patientId, status: 'in_progress', reused: true });
+    }
+
     // Use provided doctorId, or try to find doctor record for current user
     let effectiveDoctorId = doctorId;
     if (!effectiveDoctorId) {
@@ -195,10 +209,10 @@ router.post('/', authenticateToken, requireRole('doctor', 'admin'), [
 
     const result = await query(
       `INSERT INTO consultations (
-        appointment_id, patient_id, doctor_id, clinic_id, reason_for_visit, symptoms, symptom_duration
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7)
+        appointment_id, patient_id, doctor_id, clinic_id, reason_for_visit, symptoms, symptom_duration, consultation_date
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, COALESCE($8, CURRENT_TIMESTAMP))
       RETURNING *`,
-      [appointmentId, patientId, effectiveDoctorId, clinicId, reasonForVisit, symptoms, symptomDuration]
+      [appointmentId, patientId, effectiveDoctorId, clinicId, reasonForVisit, symptoms, symptomDuration, consultationDate || null]
     );
 
     // Update appointment status if linked
@@ -226,7 +240,8 @@ router.post('/', authenticateToken, requireRole('doctor', 'admin'), [
 router.patch('/:id/vitals', authenticateToken, requireRole('doctor', 'admin'), async (req, res) => {
   const {
     weightKg, heightCm, headCircumferenceCm, temperatureCelsius,
-    heartRateBpm, respiratoryRate, bloodPressureSystolic, bloodPressureDiastolic, oxygenSaturation
+    heartRateBpm, respiratoryRate, bloodPressureSystolic, bloodPressureDiastolic, oxygenSaturation,
+    consultationDate
   } = req.body;
 
   try {
@@ -248,11 +263,12 @@ router.patch('/:id/vitals', authenticateToken, requireRole('doctor', 'admin'), a
         blood_pressure_diastolic = COALESCE($8, blood_pressure_diastolic),
         oxygen_saturation = COALESCE($9, oxygen_saturation),
         bmi = COALESCE($10, bmi),
+        consultation_date = COALESCE($11, consultation_date),
         updated_at = CURRENT_TIMESTAMP
-       WHERE id = $11 RETURNING *`,
+       WHERE id = $12 RETURNING *`,
       [weightKg, heightCm, headCircumferenceCm, temperatureCelsius,
-       heartRateBpm, respiratoryRate, bloodPressureSystolic, bloodPressureDiastolic,
-       oxygenSaturation, bmi, req.params.id]
+        heartRateBpm, respiratoryRate, bloodPressureSystolic, bloodPressureDiastolic,
+        oxygenSaturation, bmi, consultationDate || null, req.params.id]
     );
 
     if (result.rows.length === 0) {
@@ -302,7 +318,7 @@ router.patch('/:id/diagnosis', authenticateToken, requireRole('doctor', 'admin')
         updated_at = CURRENT_TIMESTAMP
        WHERE id = $9 RETURNING *`,
       [physicalExam, diagnosisCodes, diagnosisDescriptions, differentialDiagnoses,
-       treatmentPlan, followUpInstructions, nextAppointmentSuggested, privateNotes, req.params.id]
+        treatmentPlan, followUpInstructions, nextAppointmentSuggested, privateNotes, req.params.id]
     );
 
     if (result.rows.length === 0) {
@@ -343,6 +359,29 @@ router.patch('/:id/complete', authenticateToken, requireRole('doctor', 'admin'),
   } catch (error) {
     logger.error('Complete consultation error:', error);
     res.status(500).json({ error: 'Failed to complete consultation' });
+  }
+});
+
+// Delete consultation
+router.delete('/:id', authenticateToken, requireRole('doctor', 'admin'), async (req, res) => {
+  try {
+    const consultation = await query('SELECT * FROM consultations WHERE id = $1', [req.params.id]);
+    if (consultation.rows.length === 0) {
+      return res.status(404).json({ error: 'Consultation not found' });
+    }
+
+    // Cascade delete related records
+    await query('DELETE FROM growth_measurements WHERE consultation_id = $1', [req.params.id]);
+    await query('DELETE FROM prescription_items WHERE prescription_id IN (SELECT id FROM prescriptions WHERE consultation_id = $1)', [req.params.id]);
+    await query('DELETE FROM prescriptions WHERE consultation_id = $1', [req.params.id]);
+    await query('DELETE FROM consultations WHERE id = $1', [req.params.id]);
+
+    await logAudit(req.user.id, 'DELETE_CONSULTATION', 'consultations', req.params.id, consultation.rows[0], null, req);
+
+    res.json({ message: 'Consulta eliminada' });
+  } catch (error) {
+    logger.error('Delete consultation error:', error);
+    res.status(500).json({ error: 'Failed to delete consultation' });
   }
 });
 

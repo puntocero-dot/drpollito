@@ -29,6 +29,7 @@ export default function ConsultationEnhanced() {
   const [aiSuggestions, setAiSuggestions] = useState(null)
   const [activeTab, setActiveTab] = useState('vitals')
   const [view3DMode, setView3DMode] = useState('bars')
+  const [consultationDate, setConsultationDate] = useState(new Date().toISOString().split('T')[0])
 
   const [vitals, setVitals] = useState({
     weightKg: '',
@@ -158,7 +159,8 @@ export default function ConsultationEnhanced() {
         respiratoryRate: vitals.respiratoryRate ? parseInt(vitals.respiratoryRate) : null,
         bloodPressureSystolic: vitals.bloodPressureSystolic ? parseInt(vitals.bloodPressureSystolic) : null,
         bloodPressureDiastolic: vitals.bloodPressureDiastolic ? parseInt(vitals.bloodPressureDiastolic) : null,
-        oxygenSaturation: vitals.oxygenSaturation ? parseInt(vitals.oxygenSaturation) : null
+        oxygenSaturation: vitals.oxygenSaturation ? parseInt(vitals.oxygenSaturation) : null,
+        consultationDate: consultationDate || null
       })
 
       // Refresh growth comparison after saving vitals
@@ -242,15 +244,18 @@ export default function ConsultationEnhanced() {
     }
   }
 
-  const calculateAge = (dob) => {
+  const calculateAge = (dob, referenceDate) => {
     if (!dob) return ''
     const birth = new Date(dob)
-    const now = new Date()
-    const years = now.getFullYear() - birth.getFullYear()
-    const months = now.getMonth() - birth.getMonth()
-    if (years < 1) return `${years * 12 + months} meses`
-    if (years < 3) return `${years} año${years > 1 ? 's' : ''} ${months > 0 ? months + 'm' : ''}`
-    return `${years} años`
+    const ref = referenceDate ? new Date(referenceDate) : new Date()
+    const years = ref.getFullYear() - birth.getFullYear()
+    const months = ref.getMonth() - birth.getMonth()
+    const totalMonths = years * 12 + months
+    if (totalMonths < 12) return `${totalMonths} meses`
+    const y = Math.floor(totalMonths / 12)
+    const m = totalMonths % 12
+    if (y < 3) return `${y} año${y > 1 ? 's' : ''} ${m > 0 ? m + 'm' : ''}`
+    return `${y} años`
   }
 
   const addPrescriptionItem = () => {
@@ -307,7 +312,7 @@ export default function ConsultationEnhanced() {
             Consulta Médica
           </h1>
           <p className="text-gray-500 dark:text-gray-400">
-            {patient?.firstName} {patient?.lastName} • {calculateAge(patient?.dateOfBirth)}
+            {patient?.firstName} {patient?.lastName} • {calculateAge(patient?.dateOfBirth, consultationDate)}
             {growthComparison?.current?.weight && (
               <span className="ml-2 text-primary-600">
                 • P{growthComparison.current.weight.percentile?.toFixed(0)} peso
@@ -361,7 +366,21 @@ export default function ConsultationEnhanced() {
           {/* Vitals Tab */}
           {activeTab === 'vitals' && (
             <div className="card p-6 space-y-6">
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Signos Vitales</h3>
+              <div className="flex items-center justify-between">
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Signos Vitales</h3>
+                <div className="flex items-center gap-2">
+                  <label className="text-sm text-gray-500 dark:text-gray-400">Fecha:</label>
+                  <input
+                    type="date"
+                    value={consultationDate}
+                    onChange={(e) => setConsultationDate(e.target.value)}
+                    className="input-field text-sm w-40"
+                  />
+                  <span className="text-xs text-primary-600 font-medium">
+                    Edad: {calculateAge(patient?.dateOfBirth, consultationDate)}
+                  </span>
+                </div>
+              </div>
 
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
                 <VitalInput
