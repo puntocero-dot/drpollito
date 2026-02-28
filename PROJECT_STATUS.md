@@ -135,8 +135,8 @@ const pool = new Pool({
 
 ### PostgreSQL Railway
 - **URL Interna:** `postgres.railway.internal:5432` (usada por el backend)
-- **URL Externa:** `switchback.proxy.rlwy.net:31758` (para scripts de migración)
-- **Credenciales:** `postgres:AbBeNdwlMirTABiZZhnJBHemQXUdQMhe`
+- **URL Externa:** `<RAILWAY_PUBLIC_HOST>:<RAILWAY_PUBLIC_PORT>` (ver panel de Railway → Postgres → Connect)
+- **Credenciales:** Ver variables de entorno en Railway (nunca commitear)
 - **DB Name:** `railway`
 
 ---
@@ -698,7 +698,7 @@ node -e "
 const { Client } = require('pg');
 const fs = require('fs');
 const c = new Client({
-  connectionString: 'postgresql://postgres:AbBeNdwlMirTABiZZhnJBHemQXUdQMhe@switchback.proxy.rlwy.net:31758/railway',
+  connectionString: process.env.DATABASE_PUBLIC_URL, // obtener de Railway → Postgres → Connect
   ssl: { rejectUnauthorized: false }
 });
 c.connect()
