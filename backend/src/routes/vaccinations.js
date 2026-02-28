@@ -33,6 +33,9 @@ router.get('/catalog', authenticateToken, async (req, res) => {
 // Get patient's vaccination record
 router.get('/patient/:patientId', authenticateToken, async (req, res) => {
   try {
+    if (!req.params.patientId || req.params.patientId === 'undefined') {
+      return res.status(400).json({ error: 'Valid patient ID is required' });
+    }
     // Get patient info
     const patientResult = await query(
       'SELECT first_name, last_name, date_of_birth FROM patients WHERE id = $1',
@@ -155,7 +158,7 @@ router.post('/', authenticateToken, requireMedicalStaff, [
       const dob = new Date(patientResult.rows[0].date_of_birth);
       const adminDate = new Date(administrationDate);
       const ageAtAdmin = (adminDate.getFullYear() - dob.getFullYear()) * 12 + (adminDate.getMonth() - dob.getMonth());
-      
+
       const nextAge = vaccine.recommended_ages_months.find(age => age > ageAtAdmin);
       if (nextAge) {
         nextDoseDue = new Date(dob);
@@ -170,7 +173,7 @@ router.post('/', authenticateToken, requireMedicalStaff, [
       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
       RETURNING *`,
       [patientId, vaccineId, doseNumber || 1, administrationDate,
-       lotNumber, manufacturer, expirationDate, site, req.user.id, reactionNotes, nextDoseDue]
+        lotNumber, manufacturer, expirationDate, site, req.user.id, reactionNotes, nextDoseDue]
     );
 
     await logAudit(req.user.id, 'RECORD_VACCINATION', 'patient_vaccinations', result.rows[0].id, null, { patientId, vaccineId }, req);

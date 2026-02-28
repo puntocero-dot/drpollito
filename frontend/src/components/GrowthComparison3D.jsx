@@ -336,9 +336,9 @@ function FriendlyChildSilhouette({
   const height = baseHeight * heightScale
   const width = 100 * widthScale
 
-  // Proportions
-  const torsoWidth = 22 + (bodyFat * 12) + (abdominal * 6)
-  const headSize = 18 + (bodyFat * 3)
+  // Proportions with safety defaults
+  const torsoWidth = Number(22 + (bodyFat * 12) + (abdominal * 6)) || 22
+  const headSize = Number(18 + (bodyFat * 3)) || 18
 
   const strokeColor = isGhost ? '#cbd5e1' : (isIdeal ? '#22c55e' : color)
   const fillColor = isGhost ? 'none' : (isIdeal ? '#22c55e' : color)

@@ -388,6 +388,9 @@ router.delete('/:id', authenticateToken, requireRole('doctor', 'admin'), async (
 // Get patient's consultation history
 router.get('/patient/:patientId/history', authenticateToken, async (req, res) => {
   try {
+    if (!req.params.patientId || req.params.patientId === 'undefined') {
+      return res.status(400).json({ error: 'Valid patient ID is required' });
+    }
     // Get patient DOB for age calculation
     const patientResult = await query(
       'SELECT date_of_birth FROM patients WHERE id = $1',

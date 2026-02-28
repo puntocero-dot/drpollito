@@ -42,7 +42,9 @@ export default function PatientDetail() {
   const [parentRelationship, setParentRelationship] = useState('padre')
 
   useEffect(() => {
-    fetchPatientData()
+    if (id && id !== 'undefined') {
+      fetchPatientData()
+    }
   }, [id])
 
   const fetchLabExams = async () => {
@@ -55,6 +57,7 @@ export default function PatientDetail() {
   }
 
   const fetchPatientData = async () => {
+    if (!id || id === 'undefined') return;
     try {
       const [patientRes, consultRes, vaccRes] = await Promise.all([
         api.get(`/patients/${id}`),

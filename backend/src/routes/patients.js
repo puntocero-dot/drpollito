@@ -72,6 +72,9 @@ router.get('/', authenticateToken, requireMedicalStaff, async (req, res) => {
 // Get patient by ID
 router.get('/:id', authenticateToken, async (req, res) => {
   try {
+    if (!req.params.id || req.params.id === 'undefined') {
+      return res.status(400).json({ error: 'Valid patient ID is required' });
+    }
     const result = await query(
       `SELECT p.*,
               array_agg(DISTINCT jsonb_build_object(
