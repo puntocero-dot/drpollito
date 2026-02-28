@@ -349,28 +349,44 @@ router.patch('/:id/complete', authenticateToken, requireRole('doctor', 'admin'),
 // Get patient's consultation history
 router.get('/patient/:patientId/history', authenticateToken, async (req, res) => {
   try {
+    // Get patient DOB for age calculation
+    const patientResult = await query(
+      'SELECT date_of_birth FROM patients WHERE id = $1',
+      [req.params.patientId]
+    );
+    const dob = patientResult.rows.length > 0 ? new Date(patientResult.rows[0].date_of_birth) : null;
+
     const result = await query(
       `SELECT c.id, c.consultation_date, c.reason_for_visit, c.symptoms,
               c.diagnosis_codes, c.diagnosis_descriptions, c.treatment_plan,
+              c.status, c.weight_kg, c.height_cm,
               u.first_name as doctor_first_name, u.last_name as doctor_last_name
        FROM consultations c
        JOIN doctors d ON c.doctor_id = d.id
        JOIN users u ON d.user_id = u.id
-       WHERE c.patient_id = $1 AND c.status = 'completed'
+       WHERE c.patient_id = $1 AND c.status IN ('completed', 'in_progress')
        ORDER BY c.consultation_date DESC`,
       [req.params.patientId]
     );
 
-    res.json(result.rows.map(c => ({
-      id: c.id,
-      consultationDate: c.consultation_date,
-      reasonForVisit: c.reason_for_visit,
-      symptoms: c.symptoms,
-      diagnosisCodes: c.diagnosis_codes,
-      diagnosisDescriptions: c.diagnosis_descriptions,
-      treatmentPlan: c.treatment_plan,
-      doctor: `Dr. ${c.doctor_first_name} ${c.doctor_last_name}`
-    })));
+    res.json(result.rows.map(c => {
+      const consultDate = new Date(c.consultation_date);
+      const ageMonths = dob ? Math.floor((consultDate - dob) / (1000 * 60 * 60 * 24 * 30.44)) : null;
+      return {
+        id: c.id,
+        consultationDate: c.consultation_date,
+        reasonForVisit: c.reason_for_visit,
+        symptoms: c.symptoms,
+        diagnosisCodes: c.diagnosis_codes,
+        diagnosisDescriptions: c.diagnosis_descriptions,
+        treatmentPlan: c.treatment_plan,
+        status: c.status,
+        weightKg: c.weight_kg ? parseFloat(c.weight_kg) : null,
+        heightCm: c.height_cm ? parseFloat(c.height_cm) : null,
+        ageMonths,
+        doctor: `Dr. ${c.doctor_first_name} ${c.doctor_last_name}`
+      };
+    }));
   } catch (error) {
     logger.error('Get patient history error:', error);
     res.status(500).json({ error: 'Failed to get history' });

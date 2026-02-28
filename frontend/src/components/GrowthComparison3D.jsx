@@ -1,11 +1,17 @@
+import { usePreferences } from '../context/PreferencesContext'
+
 export default function GrowthComparison3D({ data, viewMode = 'bars' }) {
+  const { convertWeight, convertHeight, getUnitLabel } = usePreferences()
+  const weightUnit = getUnitLabel('weight')
+  const heightUnit = getUnitLabel('height')
+
   // Handle both old format and new advanced format
   const hasAdvancedData = data?.transform3D !== undefined
-  
-  // Extract data based on format
+
+  // Extract data based on format (always in metric from backend)
   let currentWeight, currentHeight, previousWeight, previousHeight, idealWeight, idealHeight
   let healthStatus, transform3D, bmi
-  
+
   if (hasAdvancedData) {
     currentWeight = data.current?.weight || 0
     currentHeight = data.current?.height || 0
@@ -17,7 +23,6 @@ export default function GrowthComparison3D({ data, viewMode = 'bars' }) {
     transform3D = data.transform3D
     bmi = data.current?.bmi || transform3D?.bmi
   } else {
-    // Legacy format
     const { current, previous, ideal } = data || {}
     currentWeight = current?.weight?.value || current?.weight || 0
     currentHeight = current?.height?.value || current?.height || 0
@@ -26,220 +31,262 @@ export default function GrowthComparison3D({ data, viewMode = 'bars' }) {
     idealWeight = ideal?.weight || 0
     idealHeight = ideal?.height || 0
   }
-  
+
   if ((!currentWeight && !currentHeight) || !idealWeight) {
     return (
-      <div className="h-[400px] flex flex-col items-center justify-center bg-gray-100 dark:bg-gray-800 rounded-lg">
-        <p className="text-gray-500 mb-2">Sin datos de crecimiento disponibles</p>
-        <p className="text-sm text-gray-400">Registra peso y talla en la consulta</p>
+      <div className="h-[400px] flex flex-col items-center justify-center bg-gradient-to-b from-blue-50 to-white dark:from-gray-800 dark:to-gray-900 rounded-2xl">
+        <div className="w-20 h-20 mb-4 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center">
+          <svg width="40" height="40" viewBox="0 0 40 40" fill="none">
+            <circle cx="20" cy="12" r="8" fill="#93c5fd" />
+            <ellipse cx="20" cy="30" rx="10" ry="8" fill="#93c5fd" />
+          </svg>
+        </div>
+        <p className="text-gray-600 dark:text-gray-300 font-medium mb-1">Sin datos de crecimiento</p>
+        <p className="text-sm text-gray-400 dark:text-gray-500">Registra peso y talla en la consulta</p>
       </div>
     )
   }
-  
-  const maxWeight = Math.max(currentWeight, previousWeight || 0, idealWeight) * 1.15
-  const maxHeight = Math.max(currentHeight, previousHeight || 0, idealHeight) * 1.05
+
+  // Convert for display
+  const displayCurrentWeight = convertWeight(currentWeight, true)
+  const displayCurrentHeight = convertHeight(currentHeight, true)
+  const displayPreviousWeight = previousWeight ? convertWeight(previousWeight, true) : null
+  const displayPreviousHeight = previousHeight ? convertHeight(previousHeight, true) : null
+  const displayIdealWeight = convertWeight(idealWeight, true)
+  const displayIdealHeight = convertHeight(idealHeight, true)
+
+  const maxWeight = Math.max(displayCurrentWeight, displayPreviousWeight || 0, displayIdealWeight) * 1.15
+  const maxHeight = Math.max(displayCurrentHeight, displayPreviousHeight || 0, displayIdealHeight) * 1.05
 
   if (viewMode === 'silhouette') {
     return (
-      <AdvancedSilhouetteView 
-        current={{ weight: currentWeight, height: currentHeight }}
-        previous={previousWeight ? { weight: previousWeight, height: previousHeight } : null}
-        ideal={{ weight: idealWeight, height: idealHeight }}
+      <AdvancedSilhouetteView
+        current={{ weight: currentWeight, height: currentHeight, displayWeight: displayCurrentWeight, displayHeight: displayCurrentHeight }}
+        previous={previousWeight ? { weight: previousWeight, height: previousHeight, displayWeight: displayPreviousWeight, displayHeight: displayPreviousHeight } : null}
+        ideal={{ weight: idealWeight, height: idealHeight, displayWeight: displayIdealWeight, displayHeight: displayIdealHeight }}
         healthStatus={healthStatus}
         transform3D={transform3D}
         bmi={bmi}
+        weightUnit={weightUnit}
+        heightUnit={heightUnit}
       />
     )
   }
 
   return (
-    <div className="bg-gradient-to-b from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-900 rounded-lg p-6">
+    <div className="bg-gradient-to-b from-slate-50 to-white dark:from-gray-800 dark:to-gray-900 rounded-2xl p-6">
       {/* Health Status Banner */}
       {healthStatus && (
-        <div 
-          className="mb-4 p-3 rounded-lg text-center text-white font-medium"
+        <div
+          className="mb-6 p-4 rounded-xl text-center text-white font-semibold shadow-md"
           style={{ backgroundColor: healthStatus.color }}
         >
-          Estado: {healthStatus.label} {bmi && `(IMC: ${bmi.toFixed(1)})`}
+          <span className="text-lg">Estado: {healthStatus.label}</span>
+          {bmi && <span className="ml-2 opacity-80">(IMC: {bmi.toFixed(1)})</span>}
         </div>
       )}
-      
+
       <div className="grid grid-cols-2 gap-8">
         <div>
-          <h4 className="text-center font-medium text-gray-700 dark:text-gray-300 mb-4">Peso (kg)</h4>
+          <h4 className="text-center font-semibold text-gray-700 dark:text-gray-300 mb-4 text-base">
+            ⚖️ Peso ({weightUnit})
+          </h4>
           <div className="flex justify-center items-end gap-4 h-52">
-            {previousWeight && (
-              <BarColumn label="Anterior" value={previousWeight} max={maxWeight} color="#94a3b8" unit="kg" />
+            {displayPreviousWeight && (
+              <BarColumn label="Anterior" value={displayPreviousWeight} max={maxWeight} color="#94a3b8" unit={weightUnit} />
             )}
-            <BarColumn 
-              label="Actual" 
-              value={currentWeight} 
-              max={maxWeight} 
-              color={healthStatus?.color || "#3b82f6"} 
-              unit="kg" 
+            <BarColumn
+              label="Actual"
+              value={displayCurrentWeight}
+              max={maxWeight}
+              color={healthStatus?.color || "#3b82f6"}
+              unit={weightUnit}
             />
-            <BarColumn label="Ideal" value={idealWeight} max={maxWeight} color="#22c55e" unit="kg" isIdeal />
+            <BarColumn label="Ideal" value={displayIdealWeight} max={maxWeight} color="#22c55e" unit={weightUnit} isIdeal />
           </div>
         </div>
-        
+
         <div>
-          <h4 className="text-center font-medium text-gray-700 dark:text-gray-300 mb-4">Talla (cm)</h4>
+          <h4 className="text-center font-semibold text-gray-700 dark:text-gray-300 mb-4 text-base">
+            📏 Talla ({heightUnit})
+          </h4>
           <div className="flex justify-center items-end gap-4 h-52">
-            {previousHeight && (
-              <BarColumn label="Anterior" value={previousHeight} max={maxHeight} color="#94a3b8" unit="cm" />
+            {displayPreviousHeight && (
+              <BarColumn label="Anterior" value={displayPreviousHeight} max={maxHeight} color="#94a3b8" unit={heightUnit} />
             )}
-            <BarColumn label="Actual" value={currentHeight} max={maxHeight} color="#3b82f6" unit="cm" />
-            <BarColumn label="Ideal" value={idealHeight} max={maxHeight} color="#22c55e" unit="cm" isIdeal />
+            <BarColumn label="Actual" value={displayCurrentHeight} max={maxHeight} color="#3b82f6" unit={heightUnit} />
+            <BarColumn label="Ideal" value={displayIdealHeight} max={maxHeight} color="#22c55e" unit={heightUnit} isIdeal />
           </div>
         </div>
       </div>
-      
+
       {/* Legend */}
       <div className="flex justify-center gap-6 mt-6 text-sm">
-        {previousWeight && (
+        {displayPreviousWeight && (
           <span className="flex items-center gap-2">
-            <span className="w-3 h-3 rounded bg-gray-400"></span>
+            <span className="w-3 h-3 rounded-full bg-gray-400"></span>
             Última consulta
           </span>
         )}
         <span className="flex items-center gap-2">
-          <span className="w-3 h-3 rounded" style={{ backgroundColor: healthStatus?.color || '#3b82f6' }}></span>
+          <span className="w-3 h-3 rounded-full" style={{ backgroundColor: healthStatus?.color || '#3b82f6' }}></span>
           Actual
         </span>
         <span className="flex items-center gap-2">
-          <span className="w-3 h-3 rounded bg-green-500 border-2 border-dashed border-green-700"></span>
+          <span className="w-3 h-3 rounded-full bg-green-500"></span>
           Ideal (CDC P50)
         </span>
       </div>
-      
-      {/* Difference indicators */}
+
+      {/* Metrics Cards */}
       {transform3D && (
-        <div className="mt-4 grid grid-cols-2 gap-4 text-sm">
-          <div className="text-center p-2 bg-white dark:bg-gray-700 rounded">
-            <span className="text-gray-500">Ratio Peso:</span>
-            <span className={`ml-2 font-bold ${transform3D.ratioWeight > 1.1 ? 'text-orange-500' : transform3D.ratioWeight < 0.9 ? 'text-blue-500' : 'text-green-500'}`}>
-              {(transform3D.ratioWeight * 100).toFixed(0)}%
-            </span>
-          </div>
-          <div className="text-center p-2 bg-white dark:bg-gray-700 rounded">
-            <span className="text-gray-500">Ratio Talla:</span>
-            <span className={`ml-2 font-bold ${transform3D.ratioHeight > 1.05 ? 'text-blue-500' : transform3D.ratioHeight < 0.95 ? 'text-orange-500' : 'text-green-500'}`}>
-              {(transform3D.ratioHeight * 100).toFixed(0)}%
-            </span>
-          </div>
+        <div className="mt-6 grid grid-cols-3 gap-3">
+          <MetricCard
+            label="Ratio Peso"
+            value={`${(transform3D.ratioWeight * 100).toFixed(0)}%`}
+            color={transform3D.ratioWeight > 1.15 ? '#ef4444' : transform3D.ratioWeight > 1.05 ? '#f97316' : transform3D.ratioWeight < 0.9 ? '#3b82f6' : '#22c55e'}
+            icon="⚖️"
+          />
+          <MetricCard
+            label="Ratio Talla"
+            value={`${(transform3D.ratioHeight * 100).toFixed(0)}%`}
+            color={transform3D.ratioHeight < 0.9 ? '#f97316' : '#22c55e'}
+            icon="📏"
+          />
+          <MetricCard
+            label="IMC"
+            value={bmi?.toFixed(1) || '-'}
+            color={healthStatus?.color || '#6b7280'}
+            icon="📊"
+          />
         </div>
       )}
+    </div>
+  )
+}
+
+function MetricCard({ label, value, color, icon }) {
+  return (
+    <div className="text-center p-3 bg-white dark:bg-gray-700/80 rounded-xl shadow-sm border border-gray-100 dark:border-gray-600 transition-transform hover:scale-105">
+      <div className="text-lg mb-1">{icon}</div>
+      <div className="text-xs text-gray-500 dark:text-gray-400 mb-1">{label}</div>
+      <div className="text-xl font-bold" style={{ color }}>{value}</div>
     </div>
   )
 }
 
 function BarColumn({ label, value, max, color, unit, isIdeal }) {
   const percentage = Math.max(10, (value / max) * 100)
-  
+
   return (
     <div className="flex flex-col items-center gap-2 w-16">
-      <span className="text-xs font-medium" style={{ color }}>
+      <span className="text-xs font-bold" style={{ color }}>
         {value}{unit}
       </span>
-      <div className="w-full h-44 bg-gray-200 dark:bg-gray-700 rounded-lg overflow-hidden flex flex-col justify-end relative">
-        <div 
-          className={`w-full rounded-t transition-all duration-700 ease-out ${isIdeal ? 'border-2 border-dashed border-green-700' : ''}`}
+      <div className="w-full h-44 bg-gray-100 dark:bg-gray-700 rounded-xl overflow-hidden flex flex-col justify-end relative shadow-inner">
+        <div
+          className={`w-full rounded-t-lg transition-all duration-700 ease-out ${isIdeal ? 'border-2 border-dashed border-green-700' : ''}`}
           style={{ height: `${percentage}%`, backgroundColor: color, opacity: isIdeal ? 0.7 : 1 }}
         />
       </div>
-      <span className="text-xs text-gray-500 dark:text-gray-400">{label}</span>
+      <span className="text-xs font-medium text-gray-500 dark:text-gray-400">{label}</span>
     </div>
   )
 }
 
-// Advanced silhouette view with body deformation based on BMI
-function AdvancedSilhouetteView({ current, previous, ideal, healthStatus, transform3D, bmi }) {
+// Advanced silhouette view with friendly child illustration
+function AdvancedSilhouetteView({ current, previous, ideal, healthStatus, transform3D, bmi, weightUnit, heightUnit }) {
   const baseHeight = 160
-  
-  // Calculate scales
+
+  // Calculate scales (based on raw metric values for proportional accuracy)
   const idealScale = 1
   const currentHeightScale = current.height / ideal.height
   const currentWidthScale = transform3D?.scaleXZ || 1
   const previousHeightScale = previous ? previous.height / ideal.height : null
-  
+
   // Body fat intensity affects width
   const bodyFatIntensity = transform3D?.bodyFatIntensity || 0
   const abdominalExpansion = transform3D?.abdominalExpansion || 0
-  
+
   return (
-    <div className="bg-gradient-to-b from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-900 rounded-lg p-6">
+    <div className="bg-gradient-to-b from-blue-50 via-white to-slate-50 dark:from-gray-800 dark:via-gray-850 dark:to-gray-900 rounded-2xl p-6">
       {/* Health Status */}
       {healthStatus && (
-        <div 
-          className="mb-4 p-3 rounded-lg text-center text-white font-medium"
+        <div
+          className="mb-5 p-4 rounded-xl text-center text-white font-semibold shadow-md"
           style={{ backgroundColor: healthStatus.color }}
         >
-          {healthStatus.label} {bmi && `- IMC: ${bmi.toFixed(1)}`}
+          <span className="text-lg">{healthStatus.label}</span>
+          {bmi && <span className="ml-2 opacity-80">— IMC: {bmi.toFixed(1)}</span>}
         </div>
       )}
-      
-      <div className="flex justify-center items-end gap-8 min-h-[280px] relative">
+
+      <div className="flex justify-center items-end gap-12 min-h-[300px] relative py-4">
         {/* Ideal Ghost (wireframe reference) */}
-        <div className="absolute inset-0 flex justify-center items-end pointer-events-none opacity-30">
-          <ChildSilhouetteAdvanced 
+        <div className="absolute inset-0 flex justify-center items-end pointer-events-none opacity-20">
+          <FriendlyChildSilhouette
             heightScale={idealScale}
             widthScale={1}
             color="#22c55e"
             isGhost={true}
           />
         </div>
-        
+
         {/* Previous consultation (gray silhouette) */}
         {previous && previousHeightScale && (
           <div className="flex flex-col items-center z-10">
-            <ChildSilhouetteAdvanced 
+            <FriendlyChildSilhouette
               heightScale={previousHeightScale}
               widthScale={1}
-              color="#94a3b8"
+              color="#cbd5e1"
               bodyFat={0}
             />
-            <div className="mt-3 text-center">
-              <p className="text-sm font-medium text-gray-500">Última Consulta</p>
-              <p className="text-xs text-gray-400">{previous.height}cm / {previous.weight}kg</p>
+            <div className="mt-4 text-center bg-white/80 dark:bg-gray-700/80 rounded-xl px-4 py-2 shadow-sm">
+              <p className="text-sm font-semibold text-gray-500">Última Consulta</p>
+              <p className="text-xs text-gray-400 mt-1">
+                {previous.displayHeight}{heightUnit} / {previous.displayWeight}{weightUnit}
+              </p>
             </div>
           </div>
         )}
-        
+
         {/* Current state (colored by health status) */}
         <div className="flex flex-col items-center z-10">
-          <ChildSilhouetteAdvanced 
+          <FriendlyChildSilhouette
             heightScale={currentHeightScale}
             widthScale={currentWidthScale}
             color={healthStatus?.color || "#3b82f6"}
             bodyFat={bodyFatIntensity}
             abdominal={abdominalExpansion}
           />
-          <div className="mt-3 text-center">
-            <p className="text-sm font-medium" style={{ color: healthStatus?.color || '#3b82f6' }}>
+          <div className="mt-4 text-center bg-white/80 dark:bg-gray-700/80 rounded-xl px-4 py-2 shadow-sm border-2" style={{ borderColor: healthStatus?.color || '#3b82f6' }}>
+            <p className="text-sm font-bold" style={{ color: healthStatus?.color || '#3b82f6' }}>
               Actual
             </p>
-            <p className="text-xs" style={{ color: healthStatus?.color || '#3b82f6' }}>
-              {current.height}cm / {current.weight}kg
+            <p className="text-xs mt-1" style={{ color: healthStatus?.color || '#3b82f6' }}>
+              {current.displayHeight}{heightUnit} / {current.displayWeight}{weightUnit}
             </p>
           </div>
         </div>
-        
+
         {/* Ideal reference */}
         <div className="flex flex-col items-center z-10">
-          <ChildSilhouetteAdvanced 
+          <FriendlyChildSilhouette
             heightScale={idealScale}
             widthScale={1}
             color="#22c55e"
             bodyFat={0}
             isIdeal={true}
           />
-          <div className="mt-3 text-center">
-            <p className="text-sm font-medium text-green-600">Ideal (CDC)</p>
-            <p className="text-xs text-green-500">{ideal.height}cm / {ideal.weight}kg</p>
+          <div className="mt-4 text-center bg-green-50 dark:bg-green-900/30 rounded-xl px-4 py-2 shadow-sm border-2 border-green-300 dark:border-green-700">
+            <p className="text-sm font-bold text-green-600 dark:text-green-400">Ideal (CDC)</p>
+            <p className="text-xs text-green-500 mt-1">
+              {ideal.displayHeight}{heightUnit} / {ideal.displayWeight}{weightUnit}
+            </p>
           </div>
         </div>
       </div>
-      
+
       {/* Legend */}
       <div className="flex justify-center gap-6 mt-4 text-xs text-gray-500">
         <span className="flex items-center gap-1">
@@ -247,38 +294,38 @@ function AdvancedSilhouetteView({ current, previous, ideal, healthStatus, transf
           Silueta ideal (referencia)
         </span>
       </div>
-      
+
       {/* Metrics */}
       {transform3D && (
-        <div className="mt-4 grid grid-cols-3 gap-2 text-xs">
-          <div className="text-center p-2 bg-white dark:bg-gray-700 rounded">
-            <div className="text-gray-500">Ratio Peso</div>
-            <div className={`font-bold ${transform3D.ratioWeight > 1.15 ? 'text-red-500' : transform3D.ratioWeight > 1.05 ? 'text-orange-500' : transform3D.ratioWeight < 0.9 ? 'text-blue-500' : 'text-green-500'}`}>
-              {(transform3D.ratioWeight * 100).toFixed(0)}%
-            </div>
-          </div>
-          <div className="text-center p-2 bg-white dark:bg-gray-700 rounded">
-            <div className="text-gray-500">Ratio Talla</div>
-            <div className={`font-bold ${transform3D.ratioHeight < 0.9 ? 'text-orange-500' : 'text-green-500'}`}>
-              {(transform3D.ratioHeight * 100).toFixed(0)}%
-            </div>
-          </div>
-          <div className="text-center p-2 bg-white dark:bg-gray-700 rounded">
-            <div className="text-gray-500">IMC</div>
-            <div className="font-bold" style={{ color: healthStatus?.color }}>
-              {bmi?.toFixed(1) || '-'}
-            </div>
-          </div>
+        <div className="mt-5 grid grid-cols-3 gap-3">
+          <MetricCard
+            label="Ratio Peso"
+            value={`${(transform3D.ratioWeight * 100).toFixed(0)}%`}
+            color={transform3D.ratioWeight > 1.15 ? '#ef4444' : transform3D.ratioWeight > 1.05 ? '#f97316' : transform3D.ratioWeight < 0.9 ? '#3b82f6' : '#22c55e'}
+            icon="⚖️"
+          />
+          <MetricCard
+            label="Ratio Talla"
+            value={`${(transform3D.ratioHeight * 100).toFixed(0)}%`}
+            color={transform3D.ratioHeight < 0.9 ? '#f97316' : '#22c55e'}
+            icon="📏"
+          />
+          <MetricCard
+            label="IMC"
+            value={bmi?.toFixed(1) || '-'}
+            color={healthStatus?.color || '#6b7280'}
+            icon="📊"
+          />
         </div>
       )}
     </div>
   )
 }
 
-// Advanced child silhouette with body deformation
-function ChildSilhouetteAdvanced({ 
-  heightScale = 1, 
-  widthScale = 1, 
+// Friendly child silhouette with smooth, rounded SVG paths
+function FriendlyChildSilhouette({
+  heightScale = 1,
+  widthScale = 1,
   color = '#3b82f6',
   bodyFat = 0,
   abdominal = 0,
@@ -287,77 +334,135 @@ function ChildSilhouetteAdvanced({
 }) {
   const baseHeight = 160
   const height = baseHeight * heightScale
-  const width = 80 * widthScale
-  
-  // Body part dimensions affected by body fat
-  const headRadius = 14
-  const bodyRx = 18 + (bodyFat * 8) + (abdominal * 4) // Torso width
-  const bodyRy = 30 // Torso height
-  const armRx = 6 + (bodyFat * 2)
-  const legRx = 8 + (bodyFat * 3)
-  const faceRoundness = headRadius + (bodyFat * 3)
-  
-  const strokeStyle = isGhost ? { 
-    fill: 'none', 
-    stroke: color, 
-    strokeWidth: 2,
-    strokeDasharray: '4 2'
-  } : isIdeal ? {
-    fill: color,
-    opacity: 0.8,
-    stroke: '#166534',
-    strokeWidth: 1,
-    strokeDasharray: '3 2'
-  } : { 
-    fill: color 
-  }
-  
+  const width = 90 * widthScale
+
+  // Body proportions affected by body fat
+  const torsoWidth = 20 + (bodyFat * 10) + (abdominal * 5)
+  const legWidth = 7 + (bodyFat * 3)
+  const armWidth = 5 + (bodyFat * 2)
+  const cheekExpand = bodyFat * 4
+
+  const fillStyle = isGhost ? 'none' : color
+  const strokeStyle = isGhost ? color : (isIdeal ? '#166534' : 'none')
+  const strokeWidth = isGhost ? 2 : (isIdeal ? 1.5 : 0)
+  const dashArray = isGhost ? '6 3' : (isIdeal ? '4 2' : 'none')
+  const opacity = isIdeal ? 0.75 : 1
+
   return (
-    <svg 
-      width={width} 
-      height={height} 
-      viewBox="0 0 80 160" 
-      className="transition-all duration-700"
-      style={{ transform: `scaleX(${widthScale})` }}
+    <svg
+      width={width}
+      height={height}
+      viewBox="0 0 90 160"
+      className="transition-all duration-700 drop-shadow-sm"
     >
-      {/* Head */}
-      <ellipse cx="40" cy="20" rx={faceRoundness} ry={headRadius} {...strokeStyle} />
-      
+      {/* Head - rounder, friendlier */}
+      <circle
+        cx="45" cy="22" r={16 + cheekExpand}
+        fill={fillStyle} stroke={strokeStyle} strokeWidth={strokeWidth} strokeDasharray={dashArray} opacity={opacity}
+      />
+      {/* Hair tuft */}
+      {!isGhost && (
+        <ellipse cx="45" cy="10" rx={8 + cheekExpand * 0.3} ry="5" fill={color} opacity={opacity * 0.7} />
+      )}
+
       {/* Neck */}
-      <rect x="36" y="32" width="8" height="8" rx="2" {...strokeStyle} />
-      
-      {/* Body/Torso */}
-      <ellipse cx="40" cy="70" rx={bodyRx} ry={bodyRy} {...strokeStyle} />
-      
+      <rect x="41" y="36" width="8" height="6" rx="3" fill={fillStyle} stroke={strokeStyle} strokeWidth={strokeWidth} strokeDasharray={dashArray} opacity={opacity} />
+
+      {/* Body/Torso - rounded rectangle shape */}
+      <rect
+        x={45 - torsoWidth} y="42"
+        width={torsoWidth * 2} height={40 + abdominal * 5}
+        rx="12" ry="10"
+        fill={fillStyle} stroke={strokeStyle} strokeWidth={strokeWidth} strokeDasharray={dashArray} opacity={opacity}
+      />
+
       {/* Belly overlay for overweight */}
       {bodyFat > 0.2 && !isGhost && (
-        <ellipse 
-          cx="40" 
-          cy="78" 
-          rx={bodyRx * 0.9} 
-          ry={bodyRy * 0.6} 
+        <ellipse
+          cx="45"
+          cy={68 + abdominal * 2}
+          rx={torsoWidth * 0.85}
+          ry={18 + abdominal * 4}
           fill={color}
-          opacity={0.5}
+          opacity={0.4}
         />
       )}
-      
-      {/* Arms */}
-      <ellipse cx="14" cy="60" rx={armRx} ry="20" {...strokeStyle} />
-      <ellipse cx="66" cy="60" rx={armRx} ry="20" {...strokeStyle} />
-      
-      {/* Legs */}
-      <ellipse cx="30" cy="125" rx={legRx} ry="30" {...strokeStyle} />
-      <ellipse cx="50" cy="125" rx={legRx} ry="30" {...strokeStyle} />
-      
-      {/* Waist indicator line for overweight */}
-      {bodyFat > 0.3 && !isGhost && (
-        <ellipse 
-          cx="40" 
-          cy="85" 
-          rx={bodyRx + 2} 
-          ry="3" 
-          fill="rgba(0,0,0,0.1)"
-        />
+
+      {/* Left Arm */}
+      <rect
+        x={45 - torsoWidth - armWidth * 2 + 2} y="46"
+        width={armWidth * 2} height="30"
+        rx={armWidth} ry={armWidth}
+        fill={fillStyle} stroke={strokeStyle} strokeWidth={strokeWidth} strokeDasharray={dashArray} opacity={opacity}
+      />
+      {/* Left hand */}
+      <circle
+        cx={45 - torsoWidth - armWidth + 2} cy="78"
+        r={armWidth * 0.9}
+        fill={fillStyle} stroke={strokeStyle} strokeWidth={strokeWidth} strokeDasharray={dashArray} opacity={opacity}
+      />
+
+      {/* Right Arm */}
+      <rect
+        x={45 + torsoWidth - 2} y="46"
+        width={armWidth * 2} height="30"
+        rx={armWidth} ry={armWidth}
+        fill={fillStyle} stroke={strokeStyle} strokeWidth={strokeWidth} strokeDasharray={dashArray} opacity={opacity}
+      />
+      {/* Right hand */}
+      <circle
+        cx={45 + torsoWidth + armWidth - 2} cy="78"
+        r={armWidth * 0.9}
+        fill={fillStyle} stroke={strokeStyle} strokeWidth={strokeWidth} strokeDasharray={dashArray} opacity={opacity}
+      />
+
+      {/* Left Leg */}
+      <rect
+        x={45 - torsoWidth * 0.55 - legWidth} y={80 + abdominal * 5}
+        width={legWidth * 2} height="42"
+        rx={legWidth} ry={legWidth}
+        fill={fillStyle} stroke={strokeStyle} strokeWidth={strokeWidth} strokeDasharray={dashArray} opacity={opacity}
+      />
+      {/* Left foot */}
+      <ellipse
+        cx={45 - torsoWidth * 0.55} cy={124 + abdominal * 5}
+        rx={legWidth * 1.2} ry={legWidth * 0.7}
+        fill={fillStyle} stroke={strokeStyle} strokeWidth={strokeWidth} strokeDasharray={dashArray} opacity={opacity}
+      />
+
+      {/* Right Leg */}
+      <rect
+        x={45 + torsoWidth * 0.55 - legWidth} y={80 + abdominal * 5}
+        width={legWidth * 2} height="42"
+        rx={legWidth} ry={legWidth}
+        fill={fillStyle} stroke={strokeStyle} strokeWidth={strokeWidth} strokeDasharray={dashArray} opacity={opacity}
+      />
+      {/* Right foot */}
+      <ellipse
+        cx={45 + torsoWidth * 0.55} cy={124 + abdominal * 5}
+        rx={legWidth * 1.2} ry={legWidth * 0.7}
+        fill={fillStyle} stroke={strokeStyle} strokeWidth={strokeWidth} strokeDasharray={dashArray} opacity={opacity}
+      />
+
+      {/* Face details (only for non-ghost, non-ideal) */}
+      {!isGhost && !isIdeal && (
+        <>
+          {/* Eyes */}
+          <circle cx="39" cy="20" r="2" fill="white" />
+          <circle cx="51" cy="20" r="2" fill="white" />
+          <circle cx="39.5" cy="20.5" r="1" fill="#1e293b" />
+          <circle cx="51.5" cy="20.5" r="1" fill="#1e293b" />
+          {/* Smile */}
+          <path d="M 40 27 Q 45 31 50 27" fill="none" stroke="white" strokeWidth="1.5" strokeLinecap="round" />
+        </>
+      )}
+      {/* Face details for ideal */}
+      {isIdeal && (
+        <>
+          <circle cx="39" cy="20" r="1.5" fill="#166534" opacity="0.6" />
+          <circle cx="51" cy="20" r="1.5" fill="#166534" opacity="0.6" />
+          <path d="M 40 27 Q 45 30 50 27" fill="none" stroke="#166534" strokeWidth="1" strokeLinecap="round" opacity="0.6" />
+        </>
       )}
     </svg>
   )

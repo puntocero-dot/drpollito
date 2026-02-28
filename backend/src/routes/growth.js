@@ -1,12 +1,12 @@
 const express = require('express');
 const { query } = require('../config/database');
 const { authenticateToken, requireMedicalStaff } = require('../middleware/auth');
-const { 
-  calculateGrowthMetrics, 
-  getGrowthComparison, 
+const {
+  calculateGrowthMetrics,
+  getGrowthComparison,
   getAdvancedGrowthComparison,
   calculateIdealWeightCDC,
-  calculateIdealHeightCDC 
+  calculateIdealHeightCDC
 } = require('../utils/growthStandards');
 const logger = require('../config/logger');
 
@@ -16,34 +16,34 @@ const router = express.Router();
 router.get('/patient/:patientId/history', authenticateToken, async (req, res) => {
   try {
     const { patientId } = req.params;
-    
+
     // Get patient info
     const patientResult = await query(
       'SELECT date_of_birth, gender FROM patients WHERE id = $1',
       [patientId]
     );
-    
+
     if (patientResult.rows.length === 0) {
       return res.status(404).json({ error: 'Patient not found' });
     }
-    
+
     const patient = patientResult.rows[0];
     const dob = new Date(patient.date_of_birth);
-    
+
     // Get all consultations with vitals
     const consultations = await query(
       `SELECT c.id, c.consultation_date, c.weight_kg, c.height_cm, c.head_circumference_cm,
               c.temperature_celsius, c.heart_rate_bpm, c.respiratory_rate, c.oxygen_saturation
        FROM consultations c
-       WHERE c.patient_id = $1 AND c.status = 'completed'
+       WHERE c.patient_id = $1 AND c.status IN ('completed', 'in_progress')
        ORDER BY c.consultation_date ASC`,
       [patientId]
     );
-    
+
     const growthHistory = consultations.rows.map(c => {
       const consultDate = new Date(c.consultation_date);
       const ageMonths = Math.floor((consultDate - dob) / (1000 * 60 * 60 * 24 * 30.44));
-      
+
       const metrics = calculateGrowthMetrics(
         patient.gender,
         ageMonths,
@@ -51,7 +51,7 @@ router.get('/patient/:patientId/history', authenticateToken, async (req, res) =>
         c.height_cm ? parseFloat(c.height_cm) : null,
         c.head_circumference_cm ? parseFloat(c.head_circumference_cm) : null
       );
-      
+
       return {
         consultationId: c.id,
         date: c.consultation_date,
@@ -63,7 +63,7 @@ router.get('/patient/:patientId/history', authenticateToken, async (req, res) =>
         metrics
       };
     });
-    
+
     res.json({
       patientId,
       gender: patient.gender,
@@ -80,32 +80,32 @@ router.get('/patient/:patientId/history', authenticateToken, async (req, res) =>
 router.get('/patient/:patientId/comparison', authenticateToken, async (req, res) => {
   try {
     const { patientId } = req.params;
-    
+
     // Get patient info
     const patientResult = await query(
       'SELECT date_of_birth, gender, first_name, last_name FROM patients WHERE id = $1',
       [patientId]
     );
-    
+
     if (patientResult.rows.length === 0) {
       return res.status(404).json({ error: 'Patient not found' });
     }
-    
+
     const patient = patientResult.rows[0];
     const dob = new Date(patient.date_of_birth);
     const now = new Date();
     const currentAgeMonths = Math.floor((now - dob) / (1000 * 60 * 60 * 24 * 30.44));
-    
+
     // Get last two consultations
     const consultations = await query(
       `SELECT c.id, c.consultation_date, c.weight_kg, c.height_cm, c.head_circumference_cm
        FROM consultations c
-       WHERE c.patient_id = $1 AND c.weight_kg IS NOT NULL
+       WHERE c.patient_id = $1 AND c.weight_kg IS NOT NULL AND c.status IN ('completed', 'in_progress')
        ORDER BY c.consultation_date DESC
        LIMIT 2`,
       [patientId]
     );
-    
+
     if (consultations.rows.length === 0) {
       // Return ideal values only
       const idealMetrics = calculateGrowthMetrics(patient.gender, currentAgeMonths, null, null, null);
@@ -125,19 +125,19 @@ router.get('/patient/:patientId/comparison', authenticateToken, async (req, res)
         comparison: null
       });
     }
-    
+
     const currentConsult = consultations.rows[0];
     const previousConsult = consultations.rows[1] || null;
-    
+
     const currentDate = new Date(currentConsult.consultation_date);
     const currentAge = Math.floor((currentDate - dob) / (1000 * 60 * 60 * 24 * 30.44));
-    
+
     const currentData = {
       weight: currentConsult.weight_kg ? parseFloat(currentConsult.weight_kg) : null,
       height: currentConsult.height_cm ? parseFloat(currentConsult.height_cm) : null,
       headCircumference: currentConsult.head_circumference_cm ? parseFloat(currentConsult.head_circumference_cm) : null
     };
-    
+
     let previousData = null;
     let previousAge = null;
     if (previousConsult) {
@@ -150,9 +150,9 @@ router.get('/patient/:patientId/comparison', authenticateToken, async (req, res)
         headCircumference: previousConsult.head_circumference_cm ? parseFloat(previousConsult.head_circumference_cm) : null
       };
     }
-    
+
     const comparison = getGrowthComparison(patient.gender, currentAge, currentData, previousData);
-    
+
     res.json({
       patient: {
         id: patientId,
@@ -182,37 +182,37 @@ router.get('/patient/:patientId/comparison', authenticateToken, async (req, res)
 router.get('/patient/:patientId/comparison3d', authenticateToken, async (req, res) => {
   try {
     const { patientId } = req.params;
-    
+
     // Get patient info
     const patientResult = await query(
       'SELECT date_of_birth, gender, first_name, last_name FROM patients WHERE id = $1',
       [patientId]
     );
-    
+
     if (patientResult.rows.length === 0) {
       return res.status(404).json({ error: 'Patient not found' });
     }
-    
+
     const patient = patientResult.rows[0];
     const dob = new Date(patient.date_of_birth);
     const now = new Date();
     const currentAgeMonths = Math.floor((now - dob) / (1000 * 60 * 60 * 24 * 30.44));
     const ageYears = currentAgeMonths / 12;
-    
+
     // Get last two consultations with vitals
     const consultations = await query(
       `SELECT c.id, c.consultation_date, c.weight_kg, c.height_cm, c.head_circumference_cm
        FROM consultations c
-       WHERE c.patient_id = $1 AND c.weight_kg IS NOT NULL AND c.height_cm IS NOT NULL
+       WHERE c.patient_id = $1 AND c.weight_kg IS NOT NULL AND c.height_cm IS NOT NULL AND c.status IN ('completed', 'in_progress')
        ORDER BY c.consultation_date DESC
        LIMIT 2`,
       [patientId]
     );
-    
+
     // Calculate ideal values using CDC formulas
     const idealWeight = Math.round(calculateIdealWeightCDC(ageYears) * 10) / 10;
     const idealHeight = Math.round(calculateIdealHeightCDC(ageYears) * 10) / 10;
-    
+
     // If no consultations, return only ideal data for comparison
     if (consultations.rows.length === 0) {
       return res.json({
@@ -235,19 +235,19 @@ router.get('/patient/:patientId/comparison3d', authenticateToken, async (req, re
         transform3D: null
       });
     }
-    
+
     const currentConsult = consultations.rows[0];
     const previousConsult = consultations.rows[1] || null;
-    
+
     const currentDate = new Date(currentConsult.consultation_date);
     const currentAge = Math.floor((currentDate - dob) / (1000 * 60 * 60 * 24 * 30.44));
-    
+
     const currentData = {
       weight: parseFloat(currentConsult.weight_kg),
       height: parseFloat(currentConsult.height_cm),
       headCircumference: currentConsult.head_circumference_cm ? parseFloat(currentConsult.head_circumference_cm) : null
     };
-    
+
     let previousData = null;
     if (previousConsult) {
       const prevDate = new Date(previousConsult.consultation_date);
@@ -259,10 +259,10 @@ router.get('/patient/:patientId/comparison3d', authenticateToken, async (req, re
         headCircumference: previousConsult.head_circumference_cm ? parseFloat(previousConsult.head_circumference_cm) : null
       };
     }
-    
+
     // Get advanced comparison with 3D transformation data
     const comparison = getAdvancedGrowthComparison(patient.gender, currentAge, currentData, previousData);
-    
+
     res.json({
       patient: {
         id: patientId,
@@ -285,15 +285,15 @@ router.get('/curves/:gender/:ageMaxMonths', authenticateToken, async (req, res) 
   try {
     const { gender, ageMaxMonths } = req.params;
     const maxAge = Math.min(parseInt(ageMaxMonths) || 60, 60);
-    
+
     const curves = {
       weight: { p3: [], p15: [], p50: [], p85: [], p97: [] },
       height: { p3: [], p15: [], p50: [], p85: [], p97: [] }
     };
-    
+
     for (let age = 0; age <= maxAge; age++) {
       const metrics = calculateGrowthMetrics(gender, age, 10, 70, null);
-      
+
       if (metrics.weight) {
         curves.weight.p3.push({ age, value: metrics.weight.p3 });
         curves.weight.p15.push({ age, value: metrics.weight.p15 });
@@ -301,7 +301,7 @@ router.get('/curves/:gender/:ageMaxMonths', authenticateToken, async (req, res) 
         curves.weight.p85.push({ age, value: metrics.weight.p85 });
         curves.weight.p97.push({ age, value: metrics.weight.p97 });
       }
-      
+
       if (metrics.height) {
         curves.height.p3.push({ age, value: metrics.height.p3 });
         curves.height.p15.push({ age, value: metrics.height.p15 });
@@ -310,7 +310,7 @@ router.get('/curves/:gender/:ageMaxMonths', authenticateToken, async (req, res) 
         curves.height.p97.push({ age, value: metrics.height.p97 });
       }
     }
-    
+
     res.json(curves);
   } catch (error) {
     logger.error('Get growth curves error:', error);

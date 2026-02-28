@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
 import api, { BACKEND_URL } from '../services/api'
 import { useAuth } from '../context/AuthContext'
+import { usePreferences } from '../context/PreferencesContext'
 import {
   ArrowLeft, User, Calendar, Phone, Mail, AlertTriangle,
   FileText, Syringe, Activity, Edit, Plus, Clock,
@@ -15,6 +16,9 @@ export default function PatientDetail() {
   const { id } = useParams()
   const navigate = useNavigate()
   const { isDoctor, isAdmin } = useAuth()
+  const { convertWeight, convertHeight, getUnitLabel } = usePreferences()
+  const weightUnit = getUnitLabel('weight')
+  const heightUnit = getUnitLabel('height')
   const [patient, setPatient] = useState(null)
   const [consultations, setConsultations] = useState([])
   const [vaccinations, setVaccinations] = useState(null)
@@ -53,10 +57,10 @@ export default function PatientDetail() {
       setPatient(patientRes.data)
       setConsultations(consultRes.data)
       setVaccinations(vaccRes.data)
-      
+
       // Fetch lab exams
       fetchLabExams()
-      
+
       // Fetch growth data separately to handle errors gracefully
       try {
         const [comparison3d, history] = await Promise.all([
@@ -80,7 +84,7 @@ export default function PatientDetail() {
     const now = new Date()
     const years = now.getFullYear() - birth.getFullYear()
     const months = now.getMonth() - birth.getMonth()
-    
+
     if (years < 1) {
       const totalMonths = years * 12 + months
       return `${totalMonths} meses`
@@ -251,11 +255,10 @@ export default function PatientDetail() {
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`pb-3 px-1 text-sm font-medium border-b-2 transition-colors ${
-                activeTab === tab.id
+              className={`pb-3 px-1 text-sm font-medium border-b-2 transition-colors ${activeTab === tab.id
                   ? 'border-primary-600 text-primary-600'
                   : 'border-transparent text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
-              }`}
+                }`}
             >
               {tab.label}
             </button>
@@ -380,9 +383,17 @@ export default function PatientDetail() {
                 <div key={consultation.id} className="p-4 hover:bg-gray-50 dark:hover:bg-gray-700/50">
                   <div className="flex items-start justify-between">
                     <div>
-                      <p className="font-medium text-gray-900 dark:text-white">
-                        {consultation.reasonForVisit || 'Consulta general'}
-                      </p>
+                      <div className="flex items-center gap-2">
+                        <p className="font-medium text-gray-900 dark:text-white">
+                          {consultation.reasonForVisit || 'Consulta general'}
+                        </p>
+                        <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${consultation.status === 'completed'
+                            ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
+                            : 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400'
+                          }`}>
+                          {consultation.status === 'completed' ? 'Completada' : 'En progreso'}
+                        </span>
+                      </div>
                       <p className="text-sm text-gray-500 mt-1">
                         {new Date(consultation.consultationDate).toLocaleDateString('es-ES', {
                           weekday: 'long',
@@ -390,8 +401,20 @@ export default function PatientDetail() {
                           month: 'long',
                           day: 'numeric'
                         })}
+                        {consultation.ageMonths != null && (
+                          <span className="ml-2 text-primary-600 dark:text-primary-400 font-medium">
+                            • Edad: {consultation.ageMonths} meses
+                          </span>
+                        )}
                       </p>
                       <p className="text-sm text-gray-500">{consultation.doctor}</p>
+                      {(consultation.weightKg || consultation.heightCm) && (
+                        <p className="text-xs text-gray-400 mt-1">
+                          {consultation.weightKg && `Peso: ${convertWeight(consultation.weightKg, true)} ${weightUnit}`}
+                          {consultation.weightKg && consultation.heightCm && ' • '}
+                          {consultation.heightCm && `Talla: ${convertHeight(consultation.heightCm, true)} ${heightUnit}`}
+                        </p>
+                      )}
                     </div>
                     <div className="text-right">
                       {consultation.diagnosisDescriptions?.map((diag, i) => (
@@ -437,9 +460,9 @@ export default function PatientDetail() {
           {labExams.length > 0 ? (
             <div className="space-y-4">
               {labExams.map((exam) => (
-                <LabExamCard 
-                  key={exam.id} 
-                  exam={exam} 
+                <LabExamCard
+                  key={exam.id}
+                  exam={exam}
                   onRefresh={fetchLabExams}
                 />
               ))}
@@ -543,25 +566,23 @@ export default function PatientDetail() {
               <div className="flex gap-2">
                 <button
                   onClick={() => setView3DMode('bars')}
-                  className={`px-3 py-1 rounded text-sm ${
-                    view3DMode === 'bars' ? 'bg-primary-600 text-white' : 'bg-gray-100 dark:bg-gray-700'
-                  }`}
+                  className={`px-3 py-1 rounded text-sm ${view3DMode === 'bars' ? 'bg-primary-600 text-white' : 'bg-gray-100 dark:bg-gray-700'
+                    }`}
                 >
                   Barras
                 </button>
                 <button
                   onClick={() => setView3DMode('silhouette')}
-                  className={`px-3 py-1 rounded text-sm ${
-                    view3DMode === 'silhouette' ? 'bg-primary-600 text-white' : 'bg-gray-100 dark:bg-gray-700'
-                  }`}
+                  className={`px-3 py-1 rounded text-sm ${view3DMode === 'silhouette' ? 'bg-primary-600 text-white' : 'bg-gray-100 dark:bg-gray-700'
+                    }`}
                 >
                   Silueta
                 </button>
               </div>
             </div>
-            
+
             <GrowthComparison3D data={growthComparison} viewMode={view3DMode} />
-            
+
             {!growthComparison?.hasData && growthComparison?.ideal && (
               <div className="mt-4 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
                 <p className="text-sm text-blue-700 dark:text-blue-300">
@@ -585,28 +606,28 @@ export default function PatientDetail() {
                 <ResponsiveContainer width="100%" height={300}>
                   <LineChart data={growthHistory}>
                     <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis 
-                      dataKey="ageMonths" 
-                      label={{ value: 'Edad (meses)', position: 'bottom', offset: -5 }} 
+                    <XAxis
+                      dataKey="ageMonths"
+                      label={{ value: 'Edad (meses)', position: 'bottom', offset: -5 }}
                     />
-                    <YAxis 
-                      label={{ value: 'Peso (kg)', angle: -90, position: 'insideLeft' }} 
+                    <YAxis
+                      label={{ value: `Peso (${weightUnit})`, angle: -90, position: 'insideLeft' }}
                     />
-                    <Tooltip 
+                    <Tooltip
                       formatter={(value, name) => [
-                        `${value} ${name === 'weight' ? 'kg' : ''}`,
+                        `${convertWeight(value, true)} ${weightUnit}`,
                         name === 'weight' ? 'Peso' : name
                       ]}
                       labelFormatter={(label) => `Edad: ${label} meses`}
                     />
                     <Legend />
-                    <Line 
-                      type="monotone" 
-                      dataKey="weight" 
-                      stroke="#3b82f6" 
-                      strokeWidth={2} 
+                    <Line
+                      type="monotone"
+                      dataKey="weight"
+                      stroke="#3b82f6"
+                      strokeWidth={2}
                       dot={{ fill: '#3b82f6', r: 4 }}
-                      name="Peso (kg)"
+                      name={`Peso (${weightUnit})`}
                     />
                   </LineChart>
                 </ResponsiveContainer>
@@ -619,28 +640,28 @@ export default function PatientDetail() {
                 <ResponsiveContainer width="100%" height={300}>
                   <LineChart data={growthHistory}>
                     <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis 
-                      dataKey="ageMonths" 
-                      label={{ value: 'Edad (meses)', position: 'bottom', offset: -5 }} 
+                    <XAxis
+                      dataKey="ageMonths"
+                      label={{ value: 'Edad (meses)', position: 'bottom', offset: -5 }}
                     />
-                    <YAxis 
-                      label={{ value: 'Talla (cm)', angle: -90, position: 'insideLeft' }} 
+                    <YAxis
+                      label={{ value: `Talla (${heightUnit})`, angle: -90, position: 'insideLeft' }}
                     />
-                    <Tooltip 
+                    <Tooltip
                       formatter={(value, name) => [
-                        `${value} ${name === 'height' ? 'cm' : ''}`,
+                        `${convertHeight(value, true)} ${heightUnit}`,
                         name === 'height' ? 'Talla' : name
                       ]}
                       labelFormatter={(label) => `Edad: ${label} meses`}
                     />
                     <Legend />
-                    <Line 
-                      type="monotone" 
-                      dataKey="height" 
-                      stroke="#10b981" 
-                      strokeWidth={2} 
+                    <Line
+                      type="monotone"
+                      dataKey="height"
+                      stroke="#10b981"
+                      strokeWidth={2}
                       dot={{ fill: '#10b981', r: 4 }}
-                      name="Talla (cm)"
+                      name={`Talla (${heightUnit})`}
                     />
                   </LineChart>
                 </ResponsiveContainer>
@@ -669,31 +690,29 @@ export default function PatientDetail() {
                         <tr key={i} className="text-gray-700 dark:text-gray-300">
                           <td className="py-2">{new Date(h.date).toLocaleDateString('es-ES')}</td>
                           <td className="py-2">{h.ageMonths}m</td>
-                          <td className="py-2">{h.weight ? `${h.weight} kg` : '-'}</td>
-                          <td className="py-2">{h.height ? `${h.height} cm` : '-'}</td>
-                          <td className="py-2">{h.headCircumference ? `${h.headCircumference} cm` : '-'}</td>
+                          <td className="py-2">{h.weight ? `${convertWeight(h.weight, true)} ${weightUnit}` : '-'}</td>
+                          <td className="py-2">{h.height ? `${convertHeight(h.height, true)} ${heightUnit}` : '-'}</td>
+                          <td className="py-2">{h.headCircumference ? `${convertHeight(h.headCircumference, true)} ${heightUnit}` : '-'}</td>
                           <td className="py-2">
                             {h.metrics?.weight?.percentile ? (
-                              <span className={`badge ${
-                                h.metrics.weight.percentile < 3 || h.metrics.weight.percentile > 97
+                              <span className={`badge ${h.metrics.weight.percentile < 3 || h.metrics.weight.percentile > 97
                                   ? 'badge-danger'
                                   : h.metrics.weight.percentile < 15 || h.metrics.weight.percentile > 85
-                                  ? 'badge-warning'
-                                  : 'badge-success'
-                              }`}>
+                                    ? 'badge-warning'
+                                    : 'badge-success'
+                                }`}>
                                 P{h.metrics.weight.percentile.toFixed(0)}
                               </span>
                             ) : '-'}
                           </td>
                           <td className="py-2">
                             {h.metrics?.height?.percentile ? (
-                              <span className={`badge ${
-                                h.metrics.height.percentile < 3 || h.metrics.height.percentile > 97
+                              <span className={`badge ${h.metrics.height.percentile < 3 || h.metrics.height.percentile > 97
                                   ? 'badge-danger'
                                   : h.metrics.height.percentile < 15 || h.metrics.height.percentile > 85
-                                  ? 'badge-warning'
-                                  : 'badge-success'
-                              }`}>
+                                    ? 'badge-warning'
+                                    : 'badge-success'
+                                }`}>
                                 P{h.metrics.height.percentile.toFixed(0)}
                               </span>
                             ) : '-'}

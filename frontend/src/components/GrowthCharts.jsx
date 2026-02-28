@@ -4,12 +4,17 @@ import {
   ResponsiveContainer, Legend, Area, ComposedChart
 } from 'recharts'
 import api from '../services/api'
+import { usePreferences } from '../context/PreferencesContext'
 
 export default function GrowthCharts({ patientId, gender, currentAge }) {
   const [history, setHistory] = useState([])
   const [curves, setCurves] = useState(null)
   const [loading, setLoading] = useState(true)
   const [activeChart, setActiveChart] = useState('weight')
+  const { convertWeight, convertHeight, getUnitLabel, preferences } = usePreferences()
+
+  const weightUnit = getUnitLabel('weight')
+  const heightUnit = getUnitLabel('height')
 
   useEffect(() => {
     if (patientId) {
@@ -40,55 +45,64 @@ export default function GrowthCharts({ patientId, gender, currentAge }) {
     )
   }
 
+  // Convert a value for display based on chart type
+  const convertValue = (value, type) => {
+    if (!value) return value
+    return type === 'weight' ? convertWeight(value, true) : convertHeight(value, true)
+  }
+
   const prepareChartData = (type) => {
     if (!curves) return []
-    
+
     const curveData = curves[type]
     const maxAge = Math.max(...curveData.p50.map(d => d.age), ...history.map(h => h.ageMonths))
-    
+
     const data = []
     for (let age = 0; age <= maxAge; age++) {
       const point = {
         age,
-        p3: curveData.p3.find(d => d.age === age)?.value,
-        p15: curveData.p15.find(d => d.age === age)?.value,
-        p50: curveData.p50.find(d => d.age === age)?.value,
-        p85: curveData.p85.find(d => d.age === age)?.value,
-        p97: curveData.p97.find(d => d.age === age)?.value
+        p3: convertValue(curveData.p3.find(d => d.age === age)?.value, type),
+        p15: convertValue(curveData.p15.find(d => d.age === age)?.value, type),
+        p50: convertValue(curveData.p50.find(d => d.age === age)?.value, type),
+        p85: convertValue(curveData.p85.find(d => d.age === age)?.value, type),
+        p97: convertValue(curveData.p97.find(d => d.age === age)?.value, type)
       }
-      
+
       const measurement = history.find(h => h.ageMonths === age)
       if (measurement) {
-        point.patient = type === 'weight' ? measurement.weight : measurement.height
+        const rawVal = type === 'weight' ? measurement.weight : measurement.height
+        point.patient = convertValue(rawVal, type)
       }
-      
+
       data.push(point)
     }
-    
+
     // Add patient measurements that might be between standard ages
     history.forEach(h => {
       const existingPoint = data.find(d => d.age === h.ageMonths)
       if (!existingPoint) {
-        const value = type === 'weight' ? h.weight : h.height
-        if (value) {
+        const rawVal = type === 'weight' ? h.weight : h.height
+        if (rawVal) {
           data.push({
             age: h.ageMonths,
-            patient: value,
-            p50: curves[type].p50.find(d => d.age <= h.ageMonths)?.value
+            patient: convertValue(rawVal, type),
+            p50: convertValue(curves[type].p50.find(d => d.age <= h.ageMonths)?.value, type)
           })
         }
       }
     })
-    
+
     return data.sort((a, b) => a.age - b.age)
   }
 
   const weightData = prepareChartData('weight')
   const heightData = prepareChartData('height')
 
+  const currentUnit = activeChart === 'weight' ? weightUnit : heightUnit
+
   const CustomTooltip = ({ active, payload, label }) => {
     if (!active || !payload?.length) return null
-    
+
     return (
       <div className="bg-white dark:bg-gray-800 p-3 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700">
         <p className="font-medium text-gray-900 dark:text-white mb-2">
@@ -96,7 +110,7 @@ export default function GrowthCharts({ patientId, gender, currentAge }) {
         </p>
         {payload.map((entry, index) => (
           <p key={index} style={{ color: entry.color }} className="text-sm">
-            {entry.name}: {entry.value?.toFixed(1)} {activeChart === 'weight' ? 'kg' : 'cm'}
+            {entry.name}: {entry.value?.toFixed(1)} {currentUnit}
           </p>
         ))}
       </div>
@@ -109,21 +123,19 @@ export default function GrowthCharts({ patientId, gender, currentAge }) {
       <div className="flex gap-2">
         <button
           onClick={() => setActiveChart('weight')}
-          className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-            activeChart === 'weight'
+          className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${activeChart === 'weight'
               ? 'bg-primary-600 text-white'
               : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300'
-          }`}
+            }`}
         >
           Peso
         </button>
         <button
           onClick={() => setActiveChart('height')}
-          className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-            activeChart === 'height'
+          className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${activeChart === 'height'
               ? 'bg-primary-600 text-white'
               : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300'
-          }`}
+            }`}
         >
           Talla
         </button>
@@ -141,7 +153,7 @@ export default function GrowthCharts({ patientId, gender, currentAge }) {
             />
             <YAxis
               label={{
-                value: activeChart === 'weight' ? 'Peso (kg)' : 'Talla (cm)',
+                value: activeChart === 'weight' ? `Peso (${weightUnit})` : `Talla (${heightUnit})`,
                 angle: -90,
                 position: 'insideLeft'
               }}
@@ -149,7 +161,7 @@ export default function GrowthCharts({ patientId, gender, currentAge }) {
             />
             <Tooltip content={<CustomTooltip />} />
             <Legend />
-            
+
             {/* Percentile bands */}
             <Area
               type="monotone"
@@ -167,7 +179,7 @@ export default function GrowthCharts({ patientId, gender, currentAge }) {
               fillOpacity={1}
               name="P3"
             />
-            
+
             {/* Percentile lines */}
             <Line
               type="monotone"
@@ -213,7 +225,7 @@ export default function GrowthCharts({ patientId, gender, currentAge }) {
               dot={false}
               name="P97"
             />
-            
+
             {/* Patient data */}
             <Line
               type="monotone"
@@ -269,31 +281,29 @@ export default function GrowthCharts({ patientId, gender, currentAge }) {
                   <tr key={i} className="text-gray-700 dark:text-gray-300">
                     <td className="py-2">{new Date(h.date).toLocaleDateString('es-ES')}</td>
                     <td className="py-2">{h.ageMonths}m</td>
-                    <td className="py-2">{h.weight ? `${h.weight} kg` : '-'}</td>
-                    <td className="py-2">{h.height ? `${h.height} cm` : '-'}</td>
-                    <td className="py-2">{h.headCircumference ? `${h.headCircumference} cm` : '-'}</td>
+                    <td className="py-2">{h.weight ? `${convertWeight(h.weight, true)} ${weightUnit}` : '-'}</td>
+                    <td className="py-2">{h.height ? `${convertHeight(h.height, true)} ${heightUnit}` : '-'}</td>
+                    <td className="py-2">{h.headCircumference ? `${convertHeight(h.headCircumference, true)} ${heightUnit}` : '-'}</td>
                     <td className="py-2">
                       {h.metrics?.weight?.percentile ? (
-                        <span className={`badge ${
-                          h.metrics.weight.percentile < 3 || h.metrics.weight.percentile > 97
+                        <span className={`badge ${h.metrics.weight.percentile < 3 || h.metrics.weight.percentile > 97
                             ? 'badge-danger'
                             : h.metrics.weight.percentile < 15 || h.metrics.weight.percentile > 85
-                            ? 'badge-warning'
-                            : 'badge-success'
-                        }`}>
+                              ? 'badge-warning'
+                              : 'badge-success'
+                          }`}>
                           P{h.metrics.weight.percentile.toFixed(0)}
                         </span>
                       ) : '-'}
                     </td>
                     <td className="py-2">
                       {h.metrics?.height?.percentile ? (
-                        <span className={`badge ${
-                          h.metrics.height.percentile < 3 || h.metrics.height.percentile > 97
+                        <span className={`badge ${h.metrics.height.percentile < 3 || h.metrics.height.percentile > 97
                             ? 'badge-danger'
                             : h.metrics.height.percentile < 15 || h.metrics.height.percentile > 85
-                            ? 'badge-warning'
-                            : 'badge-success'
-                        }`}>
+                              ? 'badge-warning'
+                              : 'badge-success'
+                          }`}>
                           P{h.metrics.height.percentile.toFixed(0)}
                         </span>
                       ) : '-'}

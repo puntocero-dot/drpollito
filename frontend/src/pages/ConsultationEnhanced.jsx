@@ -17,7 +17,9 @@ export default function ConsultationEnhanced() {
   const navigate = useNavigate()
   const { user } = useAuth()
   const { getUnitLabel, convertWeight, convertHeight, convertTemperature, convertHeadCircumference, preferences } = usePreferences()
-  
+  const weightUnit = getUnitLabel('weight')
+  const heightUnit = getUnitLabel('height')
+
   const [consultation, setConsultation] = useState(null)
   const [patient, setPatient] = useState(null)
   const [growthComparison, setGrowthComparison] = useState(null)
@@ -72,14 +74,14 @@ export default function ConsultationEnhanced() {
         loadVitalsFromConsultation(response.data)
         loadDiagnosisFromConsultation(response.data)
         setAiSuggestions(response.data.aiSuggestions)
-        
+
         if (response.data.patient?.id) {
           fetchGrowthComparison(response.data.patient.id)
         }
       } else if (patientId) {
         const patientRes = await api.get(`/patients/${patientId}`)
         setPatient(patientRes.data)
-        
+
         // Create consultation - doctorId and clinicId may be null for admin users
         const consultRes = await api.post('/consultations', {
           patientId,
@@ -98,11 +100,12 @@ export default function ConsultationEnhanced() {
   }
 
   const loadVitalsFromConsultation = (data) => {
+    // Convert from metric (stored in DB) to display units
     setVitals({
-      weightKg: data.weightKg || '',
-      heightCm: data.heightCm || '',
-      headCircumferenceCm: data.headCircumferenceCm || '',
-      temperatureCelsius: data.temperatureCelsius || '',
+      weightKg: data.weightKg ? convertWeight(data.weightKg, true) : '',
+      heightCm: data.heightCm ? convertHeight(data.heightCm, true) : '',
+      headCircumferenceCm: data.headCircumferenceCm ? convertHeadCircumference(data.headCircumferenceCm, true) : '',
+      temperatureCelsius: data.temperatureCelsius ? convertTemperature(data.temperatureCelsius, true) : '',
       heartRateBpm: data.heartRateBpm || '',
       respiratoryRate: data.respiratoryRate || '',
       bloodPressureSystolic: data.bloodPressureSystolic || '',
@@ -140,18 +143,24 @@ export default function ConsultationEnhanced() {
     if (!consultation?.id) return
     setSaving(true)
     try {
+      // Convert from display units to metric (DB always stores kg/cm/celsius)
+      const weightInKg = vitals.weightKg ? convertWeight(parseFloat(vitals.weightKg), false) : null
+      const heightInCm = vitals.heightCm ? convertHeight(parseFloat(vitals.heightCm), false) : null
+      const headCircInCm = vitals.headCircumferenceCm ? convertHeadCircumference(parseFloat(vitals.headCircumferenceCm), false) : null
+      const tempInCelsius = vitals.temperatureCelsius ? convertTemperature(parseFloat(vitals.temperatureCelsius), false) : null
+
       await api.patch(`/consultations/${consultation.id}/vitals`, {
-        weightKg: vitals.weightKg ? parseFloat(vitals.weightKg) : null,
-        heightCm: vitals.heightCm ? parseFloat(vitals.heightCm) : null,
-        headCircumferenceCm: vitals.headCircumferenceCm ? parseFloat(vitals.headCircumferenceCm) : null,
-        temperatureCelsius: vitals.temperatureCelsius ? parseFloat(vitals.temperatureCelsius) : null,
+        weightKg: weightInKg,
+        heightCm: heightInCm,
+        headCircumferenceCm: headCircInCm,
+        temperatureCelsius: tempInCelsius,
         heartRateBpm: vitals.heartRateBpm ? parseInt(vitals.heartRateBpm) : null,
         respiratoryRate: vitals.respiratoryRate ? parseInt(vitals.respiratoryRate) : null,
         bloodPressureSystolic: vitals.bloodPressureSystolic ? parseInt(vitals.bloodPressureSystolic) : null,
         bloodPressureDiastolic: vitals.bloodPressureDiastolic ? parseInt(vitals.bloodPressureDiastolic) : null,
         oxygenSaturation: vitals.oxygenSaturation ? parseInt(vitals.oxygenSaturation) : null
       })
-      
+
       // Refresh growth comparison after saving vitals
       if (patient?.id) {
         fetchGrowthComparison(patient.id)
@@ -334,11 +343,10 @@ export default function ConsultationEnhanced() {
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`flex items-center gap-2 pb-3 px-1 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
-                activeTab === tab.id
-                  ? 'border-primary-600 text-primary-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700'
-              }`}
+              className={`flex items-center gap-2 pb-3 px-1 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${activeTab === tab.id
+                ? 'border-primary-600 text-primary-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700'
+                }`}
             >
               <tab.icon className="h-4 w-4" />
               {tab.label}
@@ -354,7 +362,7 @@ export default function ConsultationEnhanced() {
           {activeTab === 'vitals' && (
             <div className="card p-6 space-y-6">
               <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Signos Vitales</h3>
-              
+
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
                 <VitalInput
                   icon={Scale}
@@ -432,12 +440,11 @@ export default function ConsultationEnhanced() {
                     {growthComparison.current.weight && (
                       <div>
                         <span className="text-gray-600 dark:text-gray-400">Peso: </span>
-                        <span className="font-medium">{growthComparison.current.weight.value} kg</span>
-                        <span className="text-gray-500"> (ideal: {growthComparison.ideal.weight} kg)</span>
-                        <span className={`ml-2 badge ${
-                          growthComparison.current.weight.percentile < 15 || growthComparison.current.weight.percentile > 85
-                            ? 'badge-warning' : 'badge-success'
-                        }`}>
+                        <span className="font-medium">{convertWeight(growthComparison.current.weight.value, true)} {weightUnit}</span>
+                        <span className="text-gray-500"> (ideal: {convertWeight(growthComparison.ideal.weight, true)} {weightUnit})</span>
+                        <span className={`ml-2 badge ${growthComparison.current.weight.percentile < 15 || growthComparison.current.weight.percentile > 85
+                          ? 'badge-warning' : 'badge-success'
+                          }`}>
                           P{growthComparison.current.weight.percentile?.toFixed(0)}
                         </span>
                       </div>
@@ -445,12 +452,11 @@ export default function ConsultationEnhanced() {
                     {growthComparison.current.height && (
                       <div>
                         <span className="text-gray-600 dark:text-gray-400">Talla: </span>
-                        <span className="font-medium">{growthComparison.current.height.value} cm</span>
-                        <span className="text-gray-500"> (ideal: {growthComparison.ideal.height} cm)</span>
-                        <span className={`ml-2 badge ${
-                          growthComparison.current.height.percentile < 15 || growthComparison.current.height.percentile > 85
-                            ? 'badge-warning' : 'badge-success'
-                        }`}>
+                        <span className="font-medium">{convertHeight(growthComparison.current.height.value, true)} {heightUnit}</span>
+                        <span className="text-gray-500"> (ideal: {convertHeight(growthComparison.ideal.height, true)} {heightUnit})</span>
+                        <span className={`ml-2 badge ${growthComparison.current.height.percentile < 15 || growthComparison.current.height.percentile > 85
+                          ? 'badge-warning' : 'badge-success'
+                          }`}>
                           P{growthComparison.current.height.percentile?.toFixed(0)}
                         </span>
                       </div>
@@ -458,9 +464,9 @@ export default function ConsultationEnhanced() {
                   </div>
                   {growthComparison.changes && (
                     <p className="text-xs text-gray-500 mt-2">
-                      Cambio desde última consulta: 
-                      {growthComparison.changes.weight && ` +${growthComparison.changes.weight} kg`}
-                      {growthComparison.changes.height && `, +${growthComparison.changes.height} cm`}
+                      Cambio desde última consulta:
+                      {growthComparison.changes.weight && ` +${convertWeight(growthComparison.changes.weight, true)} ${weightUnit}`}
+                      {growthComparison.changes.height && `, +${convertHeight(growthComparison.changes.height, true)} ${heightUnit}`}
                     </p>
                   )}
                 </div>
@@ -476,7 +482,7 @@ export default function ConsultationEnhanced() {
           {activeTab === 'exam' && (
             <div className="card p-6 space-y-4">
               <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Motivo y Examen</h3>
-              
+
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                   Motivo de Consulta
@@ -564,7 +570,7 @@ export default function ConsultationEnhanced() {
           {activeTab === 'diagnosis' && (
             <div className="card p-6 space-y-4">
               <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Diagnóstico y Plan</h3>
-              
+
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                   Diagnóstico(s)
@@ -572,8 +578,8 @@ export default function ConsultationEnhanced() {
                 <input
                   type="text"
                   value={diagnosis.diagnosisDescriptions.join(', ')}
-                  onChange={(e) => setDiagnosis({ 
-                    ...diagnosis, 
+                  onChange={(e) => setDiagnosis({
+                    ...diagnosis,
                     diagnosisDescriptions: e.target.value.split(',').map(d => d.trim()).filter(Boolean)
                   })}
                   className="input-field"
@@ -656,7 +662,7 @@ export default function ConsultationEnhanced() {
                           <Trash2 className="h-4 w-4" />
                         </button>
                       </div>
-                      
+
                       <div className="grid grid-cols-2 gap-3">
                         <input
                           type="text"
@@ -729,7 +735,7 @@ export default function ConsultationEnhanced() {
                       />
                     </div>
                   ))}
-                  
+
                   <button onClick={savePrescription} disabled={saving} className="btn-primary">
                     {saving ? 'Guardando...' : 'Guardar Receta'}
                   </button>
@@ -761,25 +767,23 @@ export default function ConsultationEnhanced() {
                   <div className="flex gap-2">
                     <button
                       onClick={() => setView3DMode('bars')}
-                      className={`px-3 py-1 rounded text-sm ${
-                        view3DMode === 'bars' ? 'bg-primary-600 text-white' : 'bg-gray-100 dark:bg-gray-700'
-                      }`}
+                      className={`px-3 py-1 rounded text-sm ${view3DMode === 'bars' ? 'bg-primary-600 text-white' : 'bg-gray-100 dark:bg-gray-700'
+                        }`}
                     >
                       Barras
                     </button>
                     <button
                       onClick={() => setView3DMode('silhouette')}
-                      className={`px-3 py-1 rounded text-sm ${
-                        view3DMode === 'silhouette' ? 'bg-primary-600 text-white' : 'bg-gray-100 dark:bg-gray-700'
-                      }`}
+                      className={`px-3 py-1 rounded text-sm ${view3DMode === 'silhouette' ? 'bg-primary-600 text-white' : 'bg-gray-100 dark:bg-gray-700'
+                        }`}
                     >
                       Silueta
                     </button>
                   </div>
                 </div>
-                
+
                 <GrowthComparison3D data={growthComparison} viewMode={view3DMode} />
-                
+
                 <p className="text-xs text-gray-500 mt-2 text-center">
                   Comparación visual de crecimiento
                 </p>
