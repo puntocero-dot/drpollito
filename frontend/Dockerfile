@@ -13,8 +13,6 @@ ENV VITE_API_URL=$VITE_API_URL
 
 RUN npm run build
 
-RUN npm install -g serve
-
 EXPOSE 3000
 
-CMD ["sh", "-c", "serve -s dist -l tcp://0.0.0.0:${PORT:-3000}"]
+CMD ["node", "server.js"]
