@@ -236,7 +236,11 @@ export default function ConsultationEnhanced() {
         await savePrescription()
       }
       await api.patch(`/consultations/${consultation.id}/complete`)
-      navigate(`/patients/${patient.id}`)
+      if (patient?.id) {
+        navigate(`/patients/${patient.id}`)
+      } else {
+        navigate('/patients')
+      }
     } catch (error) {
       console.error('Error completing consultation:', error)
     } finally {

@@ -13,7 +13,7 @@ export default function Consultation() {
   const [searchParams] = useSearchParams()
   const navigate = useNavigate()
   const { user } = useAuth()
-  
+
   const [consultation, setConsultation] = useState(null)
   const [patient, setPatient] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -160,7 +160,11 @@ export default function Consultation() {
     try {
       await saveDiagnosis()
       await api.patch(`/consultations/${consultation.id}/complete`)
-      navigate(`/patients/${patient.id}`)
+      if (patient?.id) {
+        navigate(`/patients/${patient.id}`)
+      } else {
+        navigate('/patients')
+      }
     } catch (error) {
       console.error('Error completing consultation:', error)
     } finally {
@@ -239,11 +243,10 @@ export default function Consultation() {
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`flex items-center gap-2 pb-3 px-1 text-sm font-medium border-b-2 transition-colors ${
-                activeTab === tab.id
+              className={`flex items-center gap-2 pb-3 px-1 text-sm font-medium border-b-2 transition-colors ${activeTab === tab.id
                   ? 'border-primary-600 text-primary-600'
                   : 'border-transparent text-gray-500 hover:text-gray-700'
-              }`}
+                }`}
             >
               <tab.icon className="h-4 w-4" />
               {tab.label}
@@ -258,7 +261,7 @@ export default function Consultation() {
           {activeTab === 'vitals' && (
             <div className="card p-6 space-y-6">
               <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Signos Vitales</h3>
-              
+
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
                 <VitalInput
                   icon={Scale}
@@ -331,7 +334,7 @@ export default function Consultation() {
           {activeTab === 'exam' && (
             <div className="card p-6 space-y-4">
               <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Motivo y Examen</h3>
-              
+
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                   Motivo de Consulta
@@ -391,7 +394,7 @@ export default function Consultation() {
           {activeTab === 'diagnosis' && (
             <div className="card p-6 space-y-4">
               <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Diagnóstico y Plan</h3>
-              
+
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                   Diagnóstico
@@ -399,8 +402,8 @@ export default function Consultation() {
                 <input
                   type="text"
                   value={diagnosis.diagnosisDescriptions.join(', ')}
-                  onChange={(e) => setDiagnosis({ 
-                    ...diagnosis, 
+                  onChange={(e) => setDiagnosis({
+                    ...diagnosis,
                     diagnosisDescriptions: e.target.value.split(',').map(d => d.trim()).filter(Boolean)
                   })}
                   className="input-field"

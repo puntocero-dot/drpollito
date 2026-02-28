@@ -134,6 +134,7 @@ router.get('/:id', authenticateToken, async (req, res) => {
       aiSuggestions: c.ai_suggestions,
       privateNotes: c.private_notes,
       patient: {
+        id: c.patient_id,
         firstName: c.patient_first_name,
         lastName: c.patient_last_name,
         dateOfBirth: c.date_of_birth,

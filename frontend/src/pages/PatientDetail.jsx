@@ -42,9 +42,12 @@ export default function PatientDetail() {
   const [parentRelationship, setParentRelationship] = useState('padre')
 
   useEffect(() => {
-    if (id && id !== 'undefined') {
-      fetchPatientData()
+    if (!id || id === 'undefined') {
+      setLoading(false)
+      navigate('/patients')
+      return
     }
+    fetchPatientData()
   }, [id])
 
   const fetchLabExams = async () => {
