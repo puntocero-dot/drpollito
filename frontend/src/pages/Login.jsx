@@ -21,7 +21,14 @@ export default function Login() {
       await login(email, password)
       navigate('/dashboard')
     } catch (err) {
-      setError(err.response?.data?.error || 'Error al iniciar sesión')
+      console.error('Login error:', err)
+      if (err.code === 'ERR_NETWORK') {
+        setError(`Error de red: No se pudo conectar al servidor (${import.meta.env.VITE_API_URL || 'localhost:3001'})`)
+      } else if (err.message?.includes('CORS') || err.message?.includes('Network Error')) {
+        setError(`Error CORS/Red: ${err.message}`)
+      } else {
+        setError(err.response?.data?.error || err.message || 'Error al iniciar sesión')
+      }
     } finally {
       setLoading(false)
     }
@@ -99,6 +106,11 @@ export default function Login() {
               )}
             </button>
           </form>
+
+          {/* Debug info - TEMPORARY */}
+          <div className="mt-4 p-2 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded text-xs text-yellow-700 dark:text-yellow-400 break-all">
+            API: {import.meta.env.VITE_API_URL || 'NOT SET (using localhost:3001)'}
+          </div>
 
           {/* Demo credentials */}
           <div className="mt-6 p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
