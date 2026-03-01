@@ -168,4 +168,52 @@ router.get('/education/:diagnosis', authenticateToken, async (req, res) => {
   }
 });
 
+// Medication suggestions for autocomplete
+router.post('/medication-suggestions', authenticateToken, requireRole('doctor', 'admin'), [
+  body('query').notEmpty()
+], async (req, res) => {
+  const { query: queryText } = req.body;
+  try {
+    const suggestions = await geminiService.getMedicationAutocomplete(queryText);
+    res.json(suggestions);
+  } catch (error) {
+    logger.error('Medication suggestions error:', error);
+    res.status(500).json({ error: 'Failed to get suggestions' });
+  }
+});
+
+// AI Pediatric dosing calculation
+router.post('/calculate-dose-ai', authenticateToken, requireRole('doctor', 'admin'), [
+  body('medicationName').notEmpty(),
+  body('patientId').isUUID()
+], async (req, res) => {
+  const { medicationName, patientId } = req.body;
+  try {
+    const patientResult = await query(
+      `SELECT p.*, 
+              EXTRACT(YEAR FROM AGE(p.date_of_birth)) as age_years,
+              EXTRACT(MONTH FROM AGE(p.date_of_birth)) as age_months_total
+       FROM patients p WHERE p.id = $1`,
+      [patientId]
+    );
+
+    if (patientResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Patient not found' });
+    }
+
+    const patient = patientResult.rows[0];
+    const patientContext = {
+      age: `${patient.age_years} años y ${patient.age_months_total % 12} meses`,
+      weight: patient.weight_kg,
+      allergies: patient.allergies || []
+    };
+
+    const doseSuggestion = await geminiService.getPediatricDoseAI(medicationName, patientContext);
+    res.json(doseSuggestion);
+  } catch (error) {
+    logger.error('AI dosing calculation error:', error);
+    res.status(500).json({ error: 'Failed to calculate dose' });
+  }
+});
+
 module.exports = router;

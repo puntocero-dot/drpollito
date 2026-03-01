@@ -8,7 +8,7 @@ import GrowthComparison3D from '../components/GrowthComparison3D'
 import {
   ArrowLeft, Save, AlertTriangle, Brain, Thermometer,
   Heart, Activity, Scale, Ruler, Plus, Pill, FileText,
-  CheckCircle, Loader2, TrendingUp, Trash2
+  CheckCircle, Loader2, TrendingUp, Trash2, Sparkles, Wand2
 } from 'lucide-react'
 
 export default function ConsultationEnhanced() {
@@ -58,6 +58,9 @@ export default function ConsultationEnhanced() {
 
   const [prescriptionItems, setPrescriptionItems] = useState([])
   const [showPrescriptionForm, setShowPrescriptionForm] = useState(false)
+  const [medicationSuggestions, setMedicationSuggestions] = useState([])
+  const [activeMedicationIndex, setActiveMedicationIndex] = useState(null)
+  const [calculatingDose, setCalculatingDose] = useState(null)
 
   useEffect(() => {
     initializeConsultation()
@@ -193,6 +196,7 @@ export default function ConsultationEnhanced() {
       await api.post('/prescriptions', {
         consultationId: consultation.id,
         patientId: patient.id,
+        doctorId: user.doctorId, // Added doctorId to fix 400 error
         items: prescriptionItems
       })
       setShowPrescriptionForm(false)
@@ -201,6 +205,62 @@ export default function ConsultationEnhanced() {
     } finally {
       setSaving(false)
     }
+  }
+
+  const searchMedicationIA = async (queryText, index) => {
+    if (!queryText || queryText.length < 3) {
+      setMedicationSuggestions([])
+      return
+    }
+    setActiveMedicationIndex(index)
+    try {
+      const response = await api.post('/ai/medication-suggestions', { query: queryText })
+      setMedicationSuggestions(response.data.suggestions || [])
+    } catch (error) {
+      console.error('Error fetching medication suggestions:', error)
+    }
+  }
+
+  const getAIDoseSuggestion = async (index) => {
+    const item = prescriptionItems[index]
+    if (!item.medicationName || !patient?.id) return
+
+    setCalculatingDose(index)
+    try {
+      const response = await api.post('/ai/calculate-dose-ai', {
+        medicationName: item.medicationName,
+        patientId: patient.id
+      })
+
+      if (response.data) {
+        const updatedItems = [...prescriptionItems]
+        updatedItems[index] = {
+          ...updatedItems[index],
+          dose: response.data.recommendedDose,
+          frequency: response.data.frequency,
+          route: response.data.route.toLowerCase(),
+          instructions: response.data.reasoning
+        }
+        setPrescriptionItems(updatedItems)
+      }
+    } catch (error) {
+      console.error('Error calculating AI dose:', error)
+    } finally {
+      setCalculatingDose(null)
+    }
+  }
+
+  const selectMedicationSuggestion = (suggestion, index) => {
+    const updatedItems = [...prescriptionItems]
+    updatedItems[index] = {
+      ...updatedItems[index],
+      medicationName: suggestion.name,
+      concentration: suggestion.presentation || updatedItems[index].concentration,
+      genericName: suggestion.generic
+    }
+    setPrescriptionItems(updatedItems)
+    setMedicationSuggestions([])
+    setActiveMedicationIndex(null)
   }
 
   const getAISuggestions = async () => {
@@ -687,20 +747,52 @@ export default function ConsultationEnhanced() {
                       </div>
 
                       <div className="grid grid-cols-2 gap-3">
-                        <input
-                          type="text"
-                          value={item.medicationName}
-                          onChange={(e) => updatePrescriptionItem(index, 'medicationName', e.target.value)}
-                          className="input-field"
-                          placeholder="Nombre del medicamento"
-                        />
-                        <input
-                          type="text"
-                          value={item.concentration}
-                          onChange={(e) => updatePrescriptionItem(index, 'concentration', e.target.value)}
-                          className="input-field"
-                          placeholder="Concentración (ej: 250mg/5ml)"
-                        />
+                        <div className="relative">
+                          <input
+                            type="text"
+                            value={item.medicationName}
+                            onChange={(e) => {
+                              updatePrescriptionItem(index, 'medicationName', e.target.value)
+                              searchMedicationIA(e.target.value, index)
+                            }}
+                            className="input-field"
+                            placeholder="Nombre (ej: Tylenol)"
+                          />
+                          {activeMedicationIndex === index && medicationSuggestions.length > 0 && (
+                            <div className="absolute z-10 w-full mt-1 bg-white dark:bg-gray-800 rounded-md shadow-lg border border-gray-200 dark:border-gray-700 max-h-48 overflow-y-auto">
+                              {medicationSuggestions.map((s, i) => (
+                                <button
+                                  key={i}
+                                  className="w-full text-left px-3 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 text-sm"
+                                  onClick={() => selectMedicationSuggestion(s, index)}
+                                >
+                                  <div className="font-medium">{s.name}</div>
+                                  <div className="text-xs text-gray-500">{s.generic} - {s.presentation}</div>
+                                </button>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                        <div className="flex gap-2">
+                          <input
+                            type="text"
+                            value={item.concentration}
+                            onChange={(e) => updatePrescriptionItem(index, 'concentration', e.target.value)}
+                            className="input-field flex-1"
+                            placeholder="Concentración (ej: 250mg/5ml)"
+                          />
+                          <button
+                            onClick={() => getAIDoseSuggestion(index)}
+                            title="Sugerir dosis con IA"
+                            disabled={calculatingDose === index || !item.medicationName}
+                            className={`p-2 rounded-lg border transition-colors ${calculatingDose === index
+                              ? 'bg-primary-50 text-primary-600 animate-pulse'
+                              : 'bg-white text-gray-600 hover:text-primary-600 hover:border-primary-600'
+                              }`}
+                          >
+                            {calculatingDose === index ? <Loader2 className="h-5 w-5 animate-spin" /> : <Wand2 className="h-5 w-5" />}
+                          </button>
+                        </div>
                         <div className="flex gap-2">
                           <input
                             type="text"

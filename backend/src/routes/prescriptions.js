@@ -199,7 +199,7 @@ router.post('/', authenticateToken, requireRole('doctor', 'admin'), [
     // Add items
     for (const item of items) {
       // Check for allergy warnings
-      const allergyWarnings = allergies.filter(a => 
+      const allergyWarnings = allergies.filter(a =>
         item.medicationName.toLowerCase().includes(a.toLowerCase()) ||
         (item.genericName && item.genericName.toLowerCase().includes(a.toLowerCase()))
       );
@@ -237,7 +237,7 @@ router.post('/calculate-dose', authenticateToken, requireRole('doctor', 'admin')
   try {
     // Basic dose calculation
     let calculatedDose = weightKg * dosePerKg;
-    
+
     // Apply max dose limit if provided
     if (maxDose && calculatedDose > maxDose) {
       calculatedDose = maxDose;
@@ -267,7 +267,17 @@ router.get('/patient/:patientId/history', authenticateToken, async (req, res) =>
     const result = await query(
       `SELECT pr.id, pr.prescription_date, pr.notes,
               u.first_name as doctor_first_name, u.last_name as doctor_last_name,
-              array_agg(pi.medication_name) as medications
+              json_agg(json_build_object(
+                'id', pi.id,
+                'name', pi.medication_name,
+                'dose', pi.dose,
+                'doseUnit', pi.dose_unit,
+                'frequency', pi.frequency,
+                'duration', pi.duration,
+                'lastDoseAt', pi.last_dose_at,
+                'nextDoseAt', pi.next_dose_at,
+                'instructions', pi.instructions
+              )) as items
        FROM prescriptions pr
        JOIN doctors d ON pr.doctor_id = d.id
        JOIN users u ON d.user_id = u.id
@@ -283,11 +293,67 @@ router.get('/patient/:patientId/history', authenticateToken, async (req, res) =>
       prescriptionDate: pr.prescription_date,
       notes: pr.notes,
       doctor: `Dr. ${pr.doctor_first_name} ${pr.doctor_last_name}`,
-      medications: pr.medications
+      items: pr.items.filter(item => item.id !== null) // Filter out null items from LEFT JOIN
     })));
   } catch (error) {
     logger.error('Get prescription history error:', error);
     res.status(500).json({ error: 'Failed to get history' });
+  }
+});
+
+// Log medication administration (Mark as taken)
+router.post('/log-dose', authenticateToken, [
+  body('prescriptionItemId').isUUID(),
+  body('status').isIn(['taken', 'missed', 'delayed'])
+], async (req, res) => {
+  const { prescriptionItemId, status, notes, administeredAt = new Date() } = req.body;
+
+  try {
+    // Get item details to calculate next dose
+    const itemResult = await query(
+      'SELECT pi.*, p.frequency FROM prescription_items pi JOIN prescriptions p ON pi.prescription_id = p.id WHERE pi.id = $1',
+      [prescriptionItemId]
+    );
+
+    if (itemResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Medication item not found' });
+    }
+
+    const item = itemResult.rows[0];
+
+    // Log the event
+    const logResult = await query(
+      `INSERT INTO medication_logs (prescription_item_id, patient_id, administered_at, status, notes)
+       VALUES ($1, $2, $3, $4, $5)
+       RETURNING *`,
+      [prescriptionItemId, item.patient_id || req.body.patientId, administeredAt, status, notes]
+    );
+
+    // Calculate next dose time if frequency is provided (e.g., "cada 8 horas")
+    let nextDoseAt = null;
+    if (item.frequency) {
+      const hoursMatch = item.frequency.match(/cada (\d+) horas/i);
+      if (hoursMatch) {
+        const hours = parseInt(hoursMatch[1]);
+        nextDoseAt = new Date(new Date(administeredAt).getTime() + (hours * 60 * 60 * 1000));
+      }
+    }
+
+    // Update the item tracking
+    await query(
+      `UPDATE prescription_items 
+       SET last_dose_at = $1, next_dose_at = $2
+       WHERE id = $3`,
+      [administeredAt, nextDoseAt, prescriptionItemId]
+    );
+
+    res.status(201).json({
+      log: logResult.rows[0],
+      nextDoseAt
+    });
+  } catch (error) {
+    logger.error('Log dose error:', error);
+    res.status(500).json({ error: 'Failed to log medication dose' });
   }
 });
 

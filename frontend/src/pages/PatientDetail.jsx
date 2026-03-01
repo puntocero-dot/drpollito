@@ -6,7 +6,7 @@ import { usePreferences } from '../context/PreferencesContext'
 import {
   ArrowLeft, User, Calendar, Phone, Mail, AlertTriangle,
   FileText, Syringe, Activity, Edit, Plus, Clock,
-  Heart, Thermometer, Scale, Ruler, Trash2
+  Heart, Thermometer, Scale, Ruler, Trash2, Bell, Pill, Settings, Check
 } from 'lucide-react'
 import ConfirmDialog from '../components/ConfirmDialog'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts'
@@ -40,6 +40,8 @@ export default function PatientDetail() {
   const [availableParents, setAvailableParents] = useState([])
   const [parentSearch, setParentSearch] = useState('')
   const [parentRelationship, setParentRelationship] = useState('padre')
+  const [activePrescriptions, setActivePrescriptions] = useState([])
+  const [notificationSettings, setNotificationSettings] = useState(null)
 
   useEffect(() => {
     if (!id || id === 'undefined') {
@@ -48,6 +50,7 @@ export default function PatientDetail() {
       return
     }
     fetchPatientData()
+    fetchPrescriptions()
   }, [id])
 
   const fetchLabExams = async () => {
@@ -89,6 +92,27 @@ export default function PatientDetail() {
       console.error('Error fetching patient:', error)
     } finally {
       setLoading(false)
+    }
+  }
+
+  const fetchPrescriptions = async () => {
+    try {
+      const response = await api.get(`/prescriptions/patient/${id}/history`)
+      setActivePrescriptions(response.data)
+    } catch (error) {
+      console.error('Error fetching prescriptions:', error)
+    }
+  }
+
+  const handleLogDose = async (itemId) => {
+    try {
+      await api.post('/prescriptions/log-dose', {
+        prescriptionItemId: itemId,
+        status: 'taken'
+      })
+      fetchPrescriptions()
+    } catch (error) {
+      console.error('Error logging dose:', error)
     }
   }
 
@@ -189,6 +213,7 @@ export default function PatientDetail() {
   const tabs = [
     { id: 'overview', label: 'General' },
     { id: 'history', label: 'Historial' },
+    { id: 'medications', label: 'Medicación' },
     { id: 'labExams', label: 'Laboratorio' },
     { id: 'vaccinations', label: 'Vacunas' },
     { id: 'growth', label: 'Crecimiento' },
@@ -592,6 +617,94 @@ export default function PatientDetail() {
                   Agregar Examen
                 </button>
               )}
+            </div>
+          )}
+        </div>
+      )}
+      {activeTab === 'medications' && (
+        <div className="space-y-6">
+          <div className="flex items-center justify-between">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+              Medicación y Recordatorios
+            </h3>
+            <button className="btn-secondary text-sm flex items-center gap-2">
+              <Settings className="h-4 w-4" />
+              Configurar Alertas
+            </button>
+          </div>
+
+          {activePrescriptions.length > 0 ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {activePrescriptions.flatMap(p => (p.items || []).map((item) => {
+                const nextDoseAt = item.nextDoseAt ? new Date(item.nextDoseAt) : null;
+                const isOverdue = nextDoseAt && nextDoseAt < new Date();
+
+                const getTimeRemaining = (date) => {
+                  if (!date) return 'No programada';
+                  const diff = date - new Date();
+                  if (diff < 0) return 'Retrasado';
+                  const hours = Math.floor(diff / (1000 * 60 * 60));
+                  const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+                  return `en ${hours}h ${minutes}m`;
+                };
+
+                return (
+                  <div key={item.id} className="card p-4 space-y-3 relative overflow-hidden">
+                    <div className="flex justify-between items-start">
+                      <div className="flex items-center gap-3">
+                        <div className={`w-10 h-10 rounded-full flex items-center justify-center ${isOverdue ? 'bg-red-100 text-red-600' : 'bg-blue-100 text-blue-600'
+                          }`}>
+                          <Pill className="h-5 w-5" />
+                        </div>
+                        <div>
+                          <p className="font-semibold text-gray-900 dark:text-white">{item.name}</p>
+                          <p className="text-xs text-gray-500">{item.dose} {item.doseUnit} • {item.frequency}</p>
+                        </div>
+                      </div>
+                      <span className={`px-2 py-1 rounded text-[10px] font-bold uppercase ${isOverdue ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'
+                        }`}>
+                        {isOverdue ? 'Atraso' : 'Al día'}
+                      </span>
+                    </div>
+
+                    <div className="bg-gray-50 dark:bg-gray-700/50 p-3 rounded-lg flex items-center justify-between">
+                      <div className="flex items-center gap-2 text-sm">
+                        <Clock className={`h-4 w-4 ${isOverdue ? 'text-red-500' : 'text-blue-500'}`} />
+                        <div>
+                          <p className="text-gray-500 text-[10px]">Próxima dosis</p>
+                          <p className="font-medium text-gray-900 dark:text-white">
+                            {nextDoseAt ? nextDoseAt.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }) : 'N/A'}
+                            <span className="text-xs font-normal text-gray-500 ml-1">({getTimeRemaining(nextDoseAt)})</span>
+                          </p>
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => handleLogDose(item.id)}
+                        className="btn-primary text-xs py-1.5 px-3 flex items-center gap-1"
+                      >
+                        <Check className="h-3 w-3" />
+                        Marcar Toma
+                      </button>
+                    </div>
+
+                    {item.instructions && (
+                      <p className="text-[10px] text-gray-500 italic">
+                        Nota: {item.instructions}
+                      </p>
+                    )}
+                  </div>
+                );
+              }))}
+            </div>
+          ) : (
+            <div className="card p-12 text-center">
+              <Pill className="h-12 w-12 mx-auto text-gray-400 mb-4" />
+              <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
+                Sin medicamentos activos
+              </h3>
+              <p className="text-gray-500">
+                Las recetas guardadas en las consultas aparecerán aquí para control de dosis.
+              </p>
             </div>
           )}
         </div>

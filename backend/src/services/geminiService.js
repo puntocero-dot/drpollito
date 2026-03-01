@@ -38,7 +38,7 @@ async function getDiagnosticSuggestions(patientContext, symptoms, vitals, additi
   }
 
   try {
-    const model = genAI.getGenerativeModel({ 
+    const model = genAI.getGenerativeModel({
       model: "gemini-1.5-flash",
       generationConfig: {
         temperature: 0.3,
@@ -67,9 +67,9 @@ ${vitals ? `SIGNOS VITALES:
 ${additionalInfo ? `INFORMACIÓN ADICIONAL: ${additionalInfo}` : ''}
 
 HISTORIAL RECIENTE:
-${patientContext.recentHistory?.length > 0 
-  ? patientContext.recentHistory.map(h => `- ${h.date}: ${h.diagnoses?.join(', ') || 'Sin diagnóstico'}`).join('\n')
-  : 'Sin consultas previas registradas'}
+${patientContext.recentHistory?.length > 0
+        ? patientContext.recentHistory.map(h => `- ${h.date}: ${h.diagnoses?.join(', ') || 'Sin diagnóstico'}`).join('\n')
+        : 'Sin consultas previas registradas'}
 
 Analiza la información y proporciona:
 1. TOP 5 diagnósticos diferenciales con probabilidad estimada (%)
@@ -133,7 +133,7 @@ async function getTreatmentSuggestions(diagnosis, patientAge, patientWeight, all
   }
 
   try {
-    const model = genAI.getGenerativeModel({ 
+    const model = genAI.getGenerativeModel({
       model: "gemini-1.5-flash",
       generationConfig: {
         temperature: 0.3,
@@ -145,7 +145,7 @@ async function getTreatmentSuggestions(diagnosis, patientAge, patientWeight, all
 
 Como médico pediatra, sugiere tratamiento para:
 - Diagnóstico: ${diagnosis}
-- Edad del paciente: ${patientAge} meses (${Math.floor(patientAge/12)} años ${patientAge % 12} meses)
+- Edad del paciente: ${patientAge} meses (${Math.floor(patientAge / 12)} años ${patientAge % 12} meses)
 ${patientWeight ? `- Peso: ${patientWeight} kg` : ''}
 ${allergies?.length > 0 ? `- Alergias: ${allergies.join(', ')}` : '- Sin alergias conocidas'}
 
@@ -178,12 +178,12 @@ Responde ÚNICAMENTE con JSON válido:
     try {
       return JSON.parse(jsonText);
     } catch {
-      return { 
+      return {
         medications: [],
         nonPharmacological: [],
         followUp: "",
         warnings: [],
-        notes: text 
+        notes: text
       };
     }
   } catch (error) {
@@ -206,7 +206,7 @@ async function getEducationalContent(diagnosis, language = 'es') {
   }
 
   try {
-    const model = genAI.getGenerativeModel({ 
+    const model = genAI.getGenerativeModel({
       model: "gemini-1.5-flash",
       generationConfig: {
         temperature: 0.5,
@@ -267,7 +267,7 @@ async function analyzeLabExam(base64File, mimeType, examType, examName, patientC
   }
 
   try {
-    const model = genAI.getGenerativeModel({ 
+    const model = genAI.getGenerativeModel({
       model: "gemini-1.5-flash",
       generationConfig: {
         temperature: 0.2,
@@ -315,9 +315,69 @@ Responde en español de forma clara y estructurada.`;
   }
 }
 
+/**
+ * Get medication name autocomplete/suggestions from Gemini
+ */
+async function getMedicationAutocomplete(queryText) {
+  if (!process.env.GEMINI_API_KEY) return { suggestions: [] };
+
+  try {
+    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+    const prompt = `Como asistente farmacéutico pediátrico, proporciona una lista de hasta 10 medicamentos (nombres comerciales y genéricos comunes) que coincidan o se relacionen con el texto: "${queryText}".
+    Responde ÚNICAMENTE con JSON: {"suggestions": [{"name": "Nombre Comercial", "generic": "Nombre Genérico", "presentation": "ej: Jarabe 250mg/5ml"}]}`;
+
+    const result = await model.generateContent(prompt);
+    const text = (await result.response).text();
+    const jsonMatch = text.match(/```(?:json)?\s*([\s\S]*?)```/) || [null, text];
+    return JSON.parse(jsonMatch[1].trim());
+  } catch (error) {
+    logger.error('Gemini autocomplete error:', error);
+    return { suggestions: [] };
+  }
+}
+
+/**
+ * Get pediatric dose suggestions from Gemini based on patient context
+ */
+async function getPediatricDoseAI(medicationName, patientContext) {
+  if (!process.env.GEMINI_API_KEY) return null;
+
+  try {
+    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+    const prompt = `${MEDICAL_SYSTEM_PROMPT}
+
+CALCULA DOSIS PEDIÁTRICA PARA:
+- Medicamento: ${medicationName}
+- Edad: ${patientContext.age}
+- Peso: ${patientContext.weight} kg
+- Alergias: ${patientContext.allergies?.join(', ') || 'Ninguna'}
+
+Proporciona la dosis exacta recomendada, frecuencia y vía de administración.
+Responde ÚNICAMENTE con JSON:
+{
+  "recommendedDose": "ej: 5 ml",
+  "frequency": "ej: cada 8 horas",
+  "route": "Oral",
+  "duration": "ej: 5-7 días",
+  "maxDose24h": "ej: 15 ml",
+  "reasoning": "explicación breve de la dosis por kg"
+}`;
+
+    const result = await model.generateContent(prompt);
+    const text = (await result.response).text();
+    const jsonMatch = text.match(/```(?:json)?\s*([\s\S]*?)```/) || [null, text];
+    return JSON.parse(jsonMatch[1].trim());
+  } catch (error) {
+    logger.error('Gemini dosing error:', error);
+    return null;
+  }
+}
+
 module.exports = {
   getDiagnosticSuggestions,
   getTreatmentSuggestions,
   getEducationalContent,
-  analyzeLabExam
+  analyzeLabExam,
+  getMedicationAutocomplete,
+  getPediatricDoseAI
 };

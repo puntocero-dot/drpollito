@@ -124,8 +124,8 @@ export default function GrowthCharts({ patientId, gender, currentAge }) {
         <button
           onClick={() => setActiveChart('weight')}
           className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${activeChart === 'weight'
-              ? 'bg-primary-600 text-white'
-              : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300'
+            ? 'bg-primary-600 text-white'
+            : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300'
             }`}
         >
           Peso
@@ -133,8 +133,8 @@ export default function GrowthCharts({ patientId, gender, currentAge }) {
         <button
           onClick={() => setActiveChart('height')}
           className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${activeChart === 'height'
-              ? 'bg-primary-600 text-white'
-              : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300'
+            ? 'bg-primary-600 text-white'
+            : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300'
             }`}
         >
           Talla
@@ -150,6 +150,7 @@ export default function GrowthCharts({ patientId, gender, currentAge }) {
               dataKey="age"
               label={{ value: 'Edad (meses)', position: 'bottom', offset: -5 }}
               tick={{ fontSize: 12 }}
+              domain={[0, (data) => Math.ceil(Math.max(...data.map(d => d.age)) * 1.1)]}
             />
             <YAxis
               label={{
@@ -158,6 +159,8 @@ export default function GrowthCharts({ patientId, gender, currentAge }) {
                 position: 'insideLeft'
               }}
               tick={{ fontSize: 12 }}
+              domain={['auto', 'auto']}
+              padding={{ top: 20, bottom: 20 }}
             />
             <Tooltip content={<CustomTooltip />} />
             <Legend />
@@ -165,19 +168,19 @@ export default function GrowthCharts({ patientId, gender, currentAge }) {
             {/* Percentile bands */}
             <Area
               type="monotone"
-              dataKey="p97"
+              dataKey="p85"
               stroke="none"
               fill="#dcfce7"
-              fillOpacity={0.3}
-              name="P97"
+              fillOpacity={0.4}
+              name="Rango Normal (P15-P85)"
             />
             <Area
               type="monotone"
-              dataKey="p3"
+              dataKey="p15"
               stroke="none"
               fill="#ffffff"
               fillOpacity={1}
-              name="P3"
+              name="Fondo"
             />
 
             {/* Percentile lines */}
@@ -185,10 +188,10 @@ export default function GrowthCharts({ patientId, gender, currentAge }) {
               type="monotone"
               dataKey="p3"
               stroke="#ef4444"
-              strokeWidth={1}
+              strokeWidth={1.5}
               strokeDasharray="5 5"
               dot={false}
-              name="P3"
+              name="P3 (Límite Inferior)"
             />
             <Line
               type="monotone"
@@ -203,7 +206,7 @@ export default function GrowthCharts({ patientId, gender, currentAge }) {
               type="monotone"
               dataKey="p50"
               stroke="#22c55e"
-              strokeWidth={2}
+              strokeWidth={2.5}
               dot={false}
               name="P50 (Ideal)"
             />
@@ -220,10 +223,10 @@ export default function GrowthCharts({ patientId, gender, currentAge }) {
               type="monotone"
               dataKey="p97"
               stroke="#ef4444"
-              strokeWidth={1}
+              strokeWidth={1.5}
               strokeDasharray="5 5"
               dot={false}
-              name="P97"
+              name="P97 (Límite Superior)"
             />
 
             {/* Patient data */}
@@ -287,10 +290,10 @@ export default function GrowthCharts({ patientId, gender, currentAge }) {
                     <td className="py-2">
                       {h.metrics?.weight?.percentile ? (
                         <span className={`badge ${h.metrics.weight.percentile < 3 || h.metrics.weight.percentile > 97
-                            ? 'badge-danger'
-                            : h.metrics.weight.percentile < 15 || h.metrics.weight.percentile > 85
-                              ? 'badge-warning'
-                              : 'badge-success'
+                          ? 'badge-danger'
+                          : h.metrics.weight.percentile < 15 || h.metrics.weight.percentile > 85
+                            ? 'badge-warning'
+                            : 'badge-success'
                           }`}>
                           P{h.metrics.weight.percentile.toFixed(0)}
                         </span>
@@ -299,10 +302,10 @@ export default function GrowthCharts({ patientId, gender, currentAge }) {
                     <td className="py-2">
                       {h.metrics?.height?.percentile ? (
                         <span className={`badge ${h.metrics.height.percentile < 3 || h.metrics.height.percentile > 97
-                            ? 'badge-danger'
-                            : h.metrics.height.percentile < 15 || h.metrics.height.percentile > 85
-                              ? 'badge-warning'
-                              : 'badge-success'
+                          ? 'badge-danger'
+                          : h.metrics.height.percentile < 15 || h.metrics.height.percentile > 85
+                            ? 'badge-warning'
+                            : 'badge-success'
                           }`}>
                           P{h.metrics.height.percentile.toFixed(0)}
                         </span>
