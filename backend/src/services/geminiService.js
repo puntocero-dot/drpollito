@@ -21,6 +21,34 @@ REGLAS IMPORTANTES:
 6. Responde SIEMPRE en formato JSON válido`;
 
 /**
+ * Helper to extract and parse JSON from Gemini response
+ */
+function extractJSON(text, fallback = null) {
+  try {
+    // Try to find JSON in markdown code blocks
+    const jsonMatch = text.match(/```(?:json)?\s*([\s\S]*?)```/);
+    if (jsonMatch) {
+      return JSON.parse(jsonMatch[1].trim());
+    }
+
+    // Try to find the first { and last }
+    const firstBrace = text.indexOf('{');
+    const lastBrace = text.lastIndexOf('}');
+    if (firstBrace !== -1 && lastBrace !== -1) {
+      const potentialJson = text.substring(firstBrace, lastBrace + 1);
+      return JSON.parse(potentialJson);
+    }
+
+    // Final attempt: parse directly
+    return JSON.parse(text.trim());
+  } catch (error) {
+    logger.error('Failed to extract/parse JSON from Gemini:', error);
+    logger.debug('Raw response was:', text);
+    return fallback;
+  }
+}
+
+/**
  * Get diagnostic suggestions from Gemini
  */
 async function getDiagnosticSuggestions(patientContext, symptoms, vitals, additionalInfo) {
@@ -71,12 +99,12 @@ ${patientContext.recentHistory?.length > 0
         ? patientContext.recentHistory.map(h => `- ${h.date}: ${h.diagnoses?.join(', ') || 'Sin diagnóstico'}`).join('\n')
         : 'Sin consultas previas registradas'}
 
-Analiza la información y proporciona:
 1. TOP 5 diagnósticos diferenciales con probabilidad estimada (%)
 2. Preguntas clave adicionales que el médico debería hacer
 3. Exámenes de laboratorio o estudios recomendados
 4. Banderas rojas o signos de alarma a vigilar
 5. Alertas basadas en el historial del paciente
+6. Sugerencias de tratamiento (medicamentos comunes y medidas generales)
 
 Responde ÚNICAMENTE con JSON válido en esta estructura exacta:
 {
@@ -85,6 +113,7 @@ Responde ÚNICAMENTE con JSON válido en esta estructura exacta:
   "recommendedTests": ["examen1", "examen2"],
   "redFlags": ["bandera1", "bandera2"],
   "alerts": ["alerta1"],
+  "suggestedTreatments": ["medicamento 1 (dosis sugerida)", "medida general"],
   "notes": "notas adicionales"
 }`;
 
@@ -92,27 +121,15 @@ Responde ÚNICAMENTE con JSON válido en esta estructura exacta:
     const response = await result.response;
     const text = response.text();
 
-    // Extract JSON from response (handle markdown code blocks)
-    let jsonText = text;
-    const jsonMatch = text.match(/```(?:json)?\s*([\s\S]*?)```/);
-    if (jsonMatch) {
-      jsonText = jsonMatch[1].trim();
-    }
-
-    try {
-      return JSON.parse(jsonText);
-    } catch (parseError) {
-      logger.error('Failed to parse Gemini response:', parseError);
-      logger.debug('Raw response:', text);
-      return {
-        differentialDiagnoses: [],
-        recommendedQuestions: [],
-        recommendedTests: [],
-        redFlags: [],
-        alerts: ["Error al procesar respuesta de IA"],
-        notes: text
-      };
-    }
+    return extractJSON(text, {
+      differentialDiagnoses: [],
+      recommendedQuestions: [],
+      recommendedTests: [],
+      redFlags: [],
+      alerts: ["Error al procesar respuesta de IA"],
+      suggestedTreatments: [],
+      notes: text
+    });
   } catch (error) {
     logger.error('Gemini diagnostic error:', error);
     throw error;
@@ -169,23 +186,13 @@ Responde ÚNICAMENTE con JSON válido:
     const response = await result.response;
     const text = response.text();
 
-    let jsonText = text;
-    const jsonMatch = text.match(/```(?:json)?\s*([\s\S]*?)```/);
-    if (jsonMatch) {
-      jsonText = jsonMatch[1].trim();
-    }
-
-    try {
-      return JSON.parse(jsonText);
-    } catch {
-      return {
-        medications: [],
-        nonPharmacological: [],
-        followUp: "",
-        warnings: [],
-        notes: text
-      };
-    }
+    return extractJSON(text, {
+      medications: [],
+      nonPharmacological: [],
+      followUp: "",
+      warnings: [],
+      notes: text
+    });
   } catch (error) {
     logger.error('Gemini treatment error:', error);
     throw error;
@@ -236,22 +243,12 @@ Responde en JSON:
     const response = await result.response;
     const text = response.text();
 
-    let jsonText = text;
-    const jsonMatch = text.match(/```(?:json)?\s*([\s\S]*?)```/);
-    if (jsonMatch) {
-      jsonText = jsonMatch[1].trim();
-    }
-
-    try {
-      return JSON.parse(jsonText);
-    } catch {
-      return {
-        title: `Información sobre ${diagnosis}`,
-        description: text,
-        recommendations: [],
-        whenToSeekHelp: []
-      };
-    }
+    return extractJSON(text, {
+      title: `Información sobre ${diagnosis}`,
+      description: text,
+      recommendations: [],
+      whenToSeekHelp: []
+    });
   } catch (error) {
     logger.error('Gemini education error:', error);
     throw error;
@@ -323,13 +320,15 @@ async function getMedicationAutocomplete(queryText) {
 
   try {
     const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
-    const prompt = `Como asistente farmacéutico pediátrico, proporciona una lista de hasta 10 medicamentos (nombres comerciales y genéricos comunes) que coincidan o se relacionen con el texto: "${queryText}".
-    Responde ÚNICAMENTE con JSON: {"suggestions": [{"name": "Nombre Comercial", "generic": "Nombre Genérico", "presentation": "ej: Jarabe 250mg/5ml"}]}`;
+    const prompt = `Eres un experto farmacéutico pediátrico. Proporciona una lista de hasta 10 medicamentos pediátricos que comiencen o se relacionen con el texto: "${queryText}".
+    Incluye nombres comerciales comunes en Latinoamérica y sus genéricos.
+    Responde ÚNICAMENTE con un objeto JSON válido con esta estructura: 
+    {"suggestions": [{"name": "Nombre Comercial", "generic": "Nombre Genérico", "presentation": "ej: Suspensión 250mg/5ml"}]}`;
 
     const result = await model.generateContent(prompt);
     const text = (await result.response).text();
-    const jsonMatch = text.match(/```(?:json)?\s*([\s\S]*?)```/) || [null, text];
-    return JSON.parse(jsonMatch[1].trim());
+
+    return extractJSON(text, { suggestions: [] });
   } catch (error) {
     logger.error('Gemini autocomplete error:', error);
     return { suggestions: [] };
@@ -343,30 +342,33 @@ async function getPediatricDoseAI(medicationName, patientContext) {
   if (!process.env.GEMINI_API_KEY) return null;
 
   try {
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+    const model = genAI.getGenerativeModel({
+      model: "gemini-1.5-flash",
+      generationConfig: { temperature: 0.2 }
+    });
     const prompt = `${MEDICAL_SYSTEM_PROMPT}
 
-CALCULA DOSIS PEDIÁTRICA PARA:
+CALCULA LA DOSIS PEDIÁTRICA SEGURA PARA:
 - Medicamento: ${medicationName}
-- Edad: ${patientContext.age}
-- Peso: ${patientContext.weight} kg
+- Edad del paciente: ${patientContext.age}
+- Peso del paciente: ${patientContext.weight} kg
 - Alergias: ${patientContext.allergies?.join(', ') || 'Ninguna'}
 
-Proporciona la dosis exacta recomendada, frecuencia y vía de administración.
-Responde ÚNICAMENTE con JSON:
+Calcula basándote en guías clínicas estándar (mg/kg/dosis o mg/kg/día).
+Responde ÚNICAMENTE con JSON válido en esta estructura:
 {
   "recommendedDose": "ej: 5 ml",
   "frequency": "ej: cada 8 horas",
   "route": "Oral",
   "duration": "ej: 5-7 días",
   "maxDose24h": "ej: 15 ml",
-  "reasoning": "explicación breve de la dosis por kg"
+  "reasoning": "Dosis calculada a 15mg/kg/toma según peso de ${patientContext.weight}kg"
 }`;
 
     const result = await model.generateContent(prompt);
     const text = (await result.response).text();
-    const jsonMatch = text.match(/```(?:json)?\s*([\s\S]*?)```/) || [null, text];
-    return JSON.parse(jsonMatch[1].trim());
+
+    return extractJSON(text, null);
   } catch (error) {
     logger.error('Gemini dosing error:', error);
     return null;

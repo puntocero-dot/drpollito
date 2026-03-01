@@ -61,6 +61,7 @@ export default function ConsultationEnhanced() {
   const [medicationSuggestions, setMedicationSuggestions] = useState([])
   const [activeMedicationIndex, setActiveMedicationIndex] = useState(null)
   const [calculatingDose, setCalculatingDose] = useState(null)
+  const [suggestionsLoading, setSuggestionsLoading] = useState(false)
 
   useEffect(() => {
     initializeConsultation()
@@ -213,11 +214,14 @@ export default function ConsultationEnhanced() {
       return
     }
     setActiveMedicationIndex(index)
+    setSuggestionsLoading(true)
     try {
       const response = await api.post('/ai/medication-suggestions', { query: queryText })
       setMedicationSuggestions(response.data.suggestions || [])
     } catch (error) {
       console.error('Error fetching medication suggestions:', error)
+    } finally {
+      setSuggestionsLoading(false)
     }
   }
 
@@ -343,6 +347,24 @@ export default function ConsultationEnhanced() {
 
   const removePrescriptionItem = (index) => {
     setPrescriptionItems(prescriptionItems.filter((_, i) => i !== index))
+  }
+
+  const addTreatmentToPrescription = (treatmentText) => {
+    // Quick parse: "Medication (Dose)" or just "Medication"
+    const namePart = treatmentText.split('(')[0].trim()
+    const dosePart = treatmentText.includes('(') ? treatmentText.split('(')[1].split(')')[0].trim() : ''
+
+    setPrescriptionItems([...prescriptionItems, {
+      medicationName: namePart,
+      concentration: '',
+      dose: dosePart,
+      doseUnit: dosePart.toLowerCase().includes('mg') ? 'mg' : 'ml',
+      frequency: '',
+      duration: '',
+      route: 'oral',
+      instructions: 'Sugerido por IA'
+    }])
+    setActiveTab('prescription')
   }
 
   if (loading) {
@@ -758,18 +780,25 @@ export default function ConsultationEnhanced() {
                             className="input-field"
                             placeholder="Nombre (ej: Tylenol)"
                           />
-                          {activeMedicationIndex === index && medicationSuggestions.length > 0 && (
+                          {activeMedicationIndex === index && (suggestionsLoading || medicationSuggestions.length > 0) && (
                             <div className="absolute z-10 w-full mt-1 bg-white dark:bg-gray-800 rounded-md shadow-lg border border-gray-200 dark:border-gray-700 max-h-48 overflow-y-auto">
-                              {medicationSuggestions.map((s, i) => (
-                                <button
-                                  key={i}
-                                  className="w-full text-left px-3 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 text-sm"
-                                  onClick={() => selectMedicationSuggestion(s, index)}
-                                >
-                                  <div className="font-medium">{s.name}</div>
-                                  <div className="text-xs text-gray-500">{s.generic} - {s.presentation}</div>
-                                </button>
-                              ))}
+                              {suggestionsLoading ? (
+                                <div className="px-3 py-4 text-center">
+                                  <Loader2 className="h-5 w-5 animate-spin mx-auto text-primary-600" />
+                                  <p className="text-xs text-gray-500 mt-1">Buscando con IA...</p>
+                                </div>
+                              ) : (
+                                medicationSuggestions.map((s, i) => (
+                                  <button
+                                    key={i}
+                                    className="w-full text-left px-3 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 text-sm border-b border-gray-50 dark:border-gray-700 last:border-0"
+                                    onClick={() => selectMedicationSuggestion(s, index)}
+                                  >
+                                    <div className="font-medium text-gray-900 dark:text-white">{s.name}</div>
+                                    <div className="text-[10px] text-gray-500">{s.generic} • {s.presentation}</div>
+                                  </button>
+                                ))
+                              )}
                             </div>
                           )}
                         </div>
@@ -982,14 +1011,21 @@ export default function ConsultationEnhanced() {
                   <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                     Tratamientos Sugeridos
                   </p>
-                  <ul className="space-y-1 text-sm text-gray-600 dark:text-gray-400">
+                  <div className="space-y-1">
                     {aiSuggestions.suggestedTreatments.map((t, i) => (
-                      <li key={i} className="flex items-start gap-2">
-                        <Pill className="h-4 w-4 flex-shrink-0 mt-0.5 text-green-600" />
-                        {t}
-                      </li>
+                      <button
+                        key={i}
+                        onClick={() => addTreatmentToPrescription(t)}
+                        className="w-full text-left p-2 hover:bg-green-50 dark:hover:bg-green-900/10 rounded flex items-start gap-2 group transition-colors"
+                      >
+                        <div className="relative flex-shrink-0 mt-0.5 h-4 w-4">
+                          <Plus className="absolute inset-0 h-4 w-4 text-green-600 opacity-0 group-hover:opacity-100 transition-opacity" />
+                          <Pill className="absolute inset-0 h-4 w-4 text-green-600 opacity-100 group-hover:opacity-0 transition-opacity" />
+                        </div>
+                        <span className="text-sm text-gray-600 dark:text-gray-400">{t}</span>
+                      </button>
                     ))}
-                  </ul>
+                  </div>
                 </div>
               )}
             </div>

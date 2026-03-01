@@ -72,7 +72,13 @@ router.post('/diagnose', authenticateToken, requireRole('doctor', 'admin'), [
     res.json(aiResponse);
   } catch (error) {
     logger.error('AI diagnosis error:', error);
-    res.status(500).json({ error: 'AI assistant failed', message: error.message });
+    // Provide more detail if it's a Gemini error
+    const errorMessage = error.message || 'Internal AI error';
+    res.status(500).json({
+      error: 'AI assistant failed',
+      message: errorMessage,
+      details: error.stack
+    });
   }
 });
 
@@ -178,7 +184,11 @@ router.post('/medication-suggestions', authenticateToken, requireRole('doctor', 
     res.json(suggestions);
   } catch (error) {
     logger.error('Medication suggestions error:', error);
-    res.status(500).json({ error: 'Failed to get suggestions' });
+    res.status(500).json({
+      error: 'Failed to get suggestions',
+      message: error.message,
+      details: error.stack
+    });
   }
 });
 
@@ -212,7 +222,11 @@ router.post('/calculate-dose-ai', authenticateToken, requireRole('doctor', 'admi
     res.json(doseSuggestion);
   } catch (error) {
     logger.error('AI dosing calculation error:', error);
-    res.status(500).json({ error: 'Failed to calculate dose' });
+    res.status(500).json({
+      error: 'Failed to calculate dose',
+      message: error.message,
+      details: error.stack
+    });
   }
 });
 

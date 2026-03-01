@@ -111,9 +111,26 @@ export default function PatientDetail() {
         status: 'taken'
       })
       fetchPrescriptions()
+      fetchPatientData() // Also refresh history to update next dose times in other views
     } catch (error) {
       console.error('Error logging dose:', error)
+      alert('Error al marcar la toma. Por favor, reintente.')
     }
+  }
+
+  const handleConfigureAlerts = () => {
+    alert('Configuración de alertas: Esta funcionalidad le permite definir si desea recibir recordatorios por WhatsApp, Email o Notificaciones Push. Próximamente disponible.');
+  }
+
+  const formatDate = (dateString) => {
+    if (!dateString) return '';
+    // Use part-based formatting to avoid timezone shifts
+    const d = new Date(dateString);
+    return d.toLocaleDateString('es-ES', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    });
   }
 
   const calculateAge = (dob) => {
@@ -507,12 +524,7 @@ export default function PatientDetail() {
                         </span>
                       </div>
                       <p className="text-sm text-gray-500 mt-1">
-                        {new Date(consultation.consultationDate).toLocaleDateString('es-ES', {
-                          weekday: 'long',
-                          year: 'numeric',
-                          month: 'long',
-                          day: 'numeric'
-                        })}
+                        {formatDate(consultation.consultationDate)}
                         {consultation.ageMonths != null && (
                           <span className="ml-2 text-primary-600 dark:text-primary-400 font-medium">
                             • Edad: {consultation.ageMonths} meses
@@ -627,7 +639,10 @@ export default function PatientDetail() {
             <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
               Medicación y Recordatorios
             </h3>
-            <button className="btn-secondary text-sm flex items-center gap-2">
+            <button
+              onClick={handleConfigureAlerts}
+              className="btn-secondary text-sm flex items-center gap-2"
+            >
               <Settings className="h-4 w-4" />
               Configurar Alertas
             </button>
@@ -635,66 +650,78 @@ export default function PatientDetail() {
 
           {activePrescriptions.length > 0 ? (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {activePrescriptions.flatMap(p => (p.items || []).map((item) => {
-                const nextDoseAt = item.nextDoseAt ? new Date(item.nextDoseAt) : null;
-                const isOverdue = nextDoseAt && nextDoseAt < new Date();
+              {(() => {
+                // Filter to show only unique medications (latest one first)
+                const uniqueMeds = {};
+                activePrescriptions.forEach(p => {
+                  (p.items || []).forEach(item => {
+                    if (!uniqueMeds[item.name] || new Date(p.prescriptionDate) > new Date(uniqueMeds[item.name].prescriptionDate)) {
+                      uniqueMeds[item.name] = { ...item, prescriptionDate: p.prescriptionDate };
+                    }
+                  });
+                });
 
-                const getTimeRemaining = (date) => {
-                  if (!date) return 'No programada';
-                  const diff = date - new Date();
-                  if (diff < 0) return 'Retrasado';
-                  const hours = Math.floor(diff / (1000 * 60 * 60));
-                  const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-                  return `en ${hours}h ${minutes}m`;
-                };
+                return Object.values(uniqueMeds).map((item) => {
+                  const nextDoseAt = item.nextDoseAt ? new Date(item.nextDoseAt) : null;
+                  const isOverdue = nextDoseAt && nextDoseAt < new Date();
 
-                return (
-                  <div key={item.id} className="card p-4 space-y-3 relative overflow-hidden">
-                    <div className="flex justify-between items-start">
-                      <div className="flex items-center gap-3">
-                        <div className={`w-10 h-10 rounded-full flex items-center justify-center ${isOverdue ? 'bg-red-100 text-red-600' : 'bg-blue-100 text-blue-600'
+                  const getTimeRemaining = (date) => {
+                    if (!date) return 'No programada';
+                    const diff = date - new Date();
+                    if (diff < 0) return 'Retrasado';
+                    const hours = Math.floor(diff / (1000 * 60 * 60));
+                    const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+                    return `en ${hours}h ${minutes}m`;
+                  };
+
+                  return (
+                    <div key={item.id} className="card p-4 space-y-3 relative overflow-hidden">
+                      <div className="flex justify-between items-start">
+                        <div className="flex items-center gap-3">
+                          <div className={`w-10 h-10 rounded-full flex items-center justify-center ${isOverdue ? 'bg-red-100 text-red-600' : 'bg-blue-100 text-blue-600'
+                            }`}>
+                            <Pill className="h-5 w-5" />
+                          </div>
+                          <div>
+                            <p className="font-semibold text-gray-900 dark:text-white">{item.name}</p>
+                            <p className="text-xs text-gray-500">{item.dose} {item.doseUnit} • {item.frequency}</p>
+                          </div>
+                        </div>
+                        <span className={`px-2 py-1 rounded text-[10px] font-bold uppercase ${isOverdue ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'
                           }`}>
-                          <Pill className="h-5 w-5" />
-                        </div>
-                        <div>
-                          <p className="font-semibold text-gray-900 dark:text-white">{item.name}</p>
-                          <p className="text-xs text-gray-500">{item.dose} {item.doseUnit} • {item.frequency}</p>
-                        </div>
+                          {isOverdue ? 'Atraso' : 'Al día'}
+                        </span>
                       </div>
-                      <span className={`px-2 py-1 rounded text-[10px] font-bold uppercase ${isOverdue ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'
-                        }`}>
-                        {isOverdue ? 'Atraso' : 'Al día'}
-                      </span>
-                    </div>
 
-                    <div className="bg-gray-50 dark:bg-gray-700/50 p-3 rounded-lg flex items-center justify-between">
-                      <div className="flex items-center gap-2 text-sm">
-                        <Clock className={`h-4 w-4 ${isOverdue ? 'text-red-500' : 'text-blue-500'}`} />
-                        <div>
-                          <p className="text-gray-500 text-[10px]">Próxima dosis</p>
-                          <p className="font-medium text-gray-900 dark:text-white">
-                            {nextDoseAt ? nextDoseAt.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }) : 'N/A'}
-                            <span className="text-xs font-normal text-gray-500 ml-1">({getTimeRemaining(nextDoseAt)})</span>
-                          </p>
+                      <div className="bg-gray-50 dark:bg-gray-700/50 p-3 rounded-lg flex items-center justify-between">
+                        <div className="flex items-center gap-2 text-sm">
+                          <Clock className={`h-4 w-4 ${isOverdue ? 'text-red-500' : 'text-blue-500'}`} />
+                          <div>
+                            <p className="text-gray-500 text-[10px]">Próxima dosis</p>
+                            <p className="font-medium text-gray-900 dark:text-white">
+                              {nextDoseAt ? nextDoseAt.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }) : 'N/A'}
+                              <span className="text-xs font-normal text-gray-500 ml-1">({getTimeRemaining(nextDoseAt)})</span>
+                            </p>
+                          </div>
                         </div>
+                        <button
+                          onClick={() => handleLogDose(item.id)}
+                          className="btn-primary text-xs py-1.5 px-3 flex items-center gap-1"
+                        >
+                          <Check className="h-3 w-3" />
+                          Marcar Toma
+                        </button>
                       </div>
-                      <button
-                        onClick={() => handleLogDose(item.id)}
-                        className="btn-primary text-xs py-1.5 px-3 flex items-center gap-1"
-                      >
-                        <Check className="h-3 w-3" />
-                        Marcar Toma
-                      </button>
-                    </div>
 
-                    {item.instructions && (
-                      <p className="text-[10px] text-gray-500 italic">
-                        Nota: {item.instructions}
-                      </p>
-                    )}
-                  </div>
-                );
-              }))}
+                      {item.instructions && (
+                        <p className="text-[10px] text-gray-500 italic">
+                          Nota: {item.instructions}
+                        </p>
+                      )}
+                    </div>
+                  );
+                });
+              })()}
             </div>
           ) : (
             <div className="card p-12 text-center">
