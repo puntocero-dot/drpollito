@@ -167,24 +167,33 @@ router.get('/:id', authenticateToken, async (req, res) => {
 });
 
 // Create appointment
-router.post('/', authenticateToken, [
-  body('doctorId').isUUID(),
-  body('patientId').isUUID(),
-  body('scheduledDate').isDate(),
-  body('scheduledTime').matches(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/),
-  body('type').isIn(['first_visit', 'follow_up', 'emergency', 'vaccination', 'teleconsultation'])
-], async (req, res) => {
-  const errors = validationResult(req);
-  if (!errors.isEmpty()) {
-    return res.status(400).json({
-      error: 'Error de validación: ' + errors.array().map(e => `${e.path || e.param || 'campo'}: ${e.msg}`).join(', ')
-    });
-  }
-
+router.post('/', authenticateToken, async (req, res) => {
   const {
     clinicId, doctorId, patientId, parentId, scheduledDate, scheduledTime,
     durationMinutes, type, reason, preVisitInstructions, notes
   } = req.body;
+
+  // Manual validation with clear error messages
+  const validationErrors = [];
+  if (!doctorId) validationErrors.push('doctorId es requerido');
+  if (!patientId) validationErrors.push('patientId es requerido');
+  if (!scheduledDate) validationErrors.push('scheduledDate es requerido');
+  if (!scheduledTime) validationErrors.push('scheduledTime es requerido');
+  if (!type) validationErrors.push('type es requerido');
+
+  const validTypes = ['first_visit', 'follow_up', 'emergency', 'vaccination', 'teleconsultation'];
+  if (type && !validTypes.includes(type)) {
+    validationErrors.push(`type "${type}" no es válido. Opciones: ${validTypes.join(', ')}`);
+  }
+
+  if (validationErrors.length > 0) {
+    logger.warn('Appointment validation failed:', { body: req.body, errors: validationErrors });
+    return res.status(400).json({
+      error: 'Error de validación: ' + validationErrors.join(', ')
+    });
+  }
+
+
 
   // Sanitize clinicId: empty string -> null to avoid UUID cast error
   const safeClinicId = clinicId && clinicId.length > 0 ? clinicId : null;
