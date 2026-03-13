@@ -232,16 +232,23 @@ function AdvancedSilhouetteView({ current, previous, ideal, healthStatus, transf
   const currentWidthScale = transform3D?.scaleXZ || 1
   const previousHeightScale = previous ? previous.height / ideal.height : null
 
+  // PIXEL CONVERSION MATH
+  // We use the ideal silhouette height as the reference (160px)
+  const pxPerCm = 160 / ideal.height
+  const currentHeightPx = (current.height * pxPerCm) + 16 // + padding/offset if needed
+  const previousHeightPx = previous ? (previous.height * pxPerCm) + 16 : null
+  const idealHeightPx = 160 + 16
+
   // Body fat intensity affects width
   const bodyFatIntensity = transform3D?.bodyFatIntensity || 0
   const abdominalExpansion = transform3D?.abdominalExpansion || 0
 
   return (
-    <div className="bg-gradient-to-b from-blue-50 via-white to-slate-50 dark:from-gray-800 dark:via-gray-850 dark:to-gray-900 rounded-2xl p-6">
+    <div className="bg-gradient-to-b from-blue-50 via-white to-slate-50 dark:from-gray-800 dark:via-gray-850 dark:to-gray-900 rounded-2xl p-6 overflow-hidden">
       {/* Health Status */}
       {healthStatus && (
         <div
-          className="mb-5 p-4 rounded-xl text-center text-white font-semibold shadow-md"
+          className="mb-5 p-4 rounded-xl text-center text-white font-semibold shadow-md z-20 relative"
           style={{ backgroundColor: healthStatus.color }}
         >
           <span className="text-lg">{healthStatus.label}</span>
@@ -249,7 +256,38 @@ function AdvancedSilhouetteView({ current, previous, ideal, healthStatus, transf
         </div>
       )}
 
-      <div className="flex justify-center items-end gap-12 min-h-[300px] relative py-4">
+      <div className="flex justify-center items-end gap-12 min-h-[340px] relative py-8 px-12">
+        {/* Vertical Ruler */}
+        <div className="absolute left-4 bottom-8 top-8 w-12 border-r border-slate-200 dark:border-white/10 z-0">
+          {[...Array(Math.ceil(Math.max(current.height, ideal.height, previous?.height || 0) / 10) + 2)].map((_, i) => {
+            const cm = i * 10;
+            const bottom = cm * pxPerCm;
+            return (
+              <div key={cm} className="absolute left-0 w-full flex items-center" style={{ bottom: `${bottom}px` }}>
+                <div className="w-3 h-0.5 bg-slate-300 dark:bg-white/20"></div>
+                <span className="text-[10px] font-bold text-slate-400 dark:text-gray-500 ml-1.5">{cm}</span>
+              </div>
+            )
+          })}
+        </div>
+
+        {/* Horizontal Guide Lines */}
+        {/* Ideal Line */}
+        <div className="absolute left-4 right-4 border-t-2 border-dashed border-green-500/20 z-0 transition-all duration-1000" style={{ bottom: `${idealHeightPx}px` }}>
+           <div className="absolute -top-5 right-0 text-[9px] font-black text-green-500/40 uppercase tracking-tighter">Ideal OMS</div>
+        </div>
+        
+        {/* Current Line */}
+        <div className="absolute left-4 right-4 border-t-2 border-dashed z-0 transition-all duration-1000" style={{ bottom: `${currentHeightPx}px`, borderColor: `${healthStatus?.color}33` }}>
+           <div className="absolute -top-5 left-12 text-[9px] font-black uppercase tracking-tighter" style={{ color: `${healthStatus?.color}88` }}>Actual ({current.displayHeight}{heightUnit})</div>
+        </div>
+
+        {/* Previous Line */}
+        {previous && (
+          <div className="absolute left-4 right-4 border-t border-dotted border-slate-400/20 z-0 transition-all duration-1000" style={{ bottom: `${previousHeightPx}px` }}>
+          </div>
+        )}
+
         {/* Ideal Ghost (wireframe reference) */}
         <div className="absolute inset-0 flex justify-center items-end pointer-events-none opacity-20">
           <FriendlyChildSilhouette
