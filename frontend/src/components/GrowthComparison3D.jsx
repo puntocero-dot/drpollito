@@ -235,9 +235,10 @@ function AdvancedSilhouetteView({ current, previous, ideal, healthStatus, transf
   // PIXEL CONVERSION MATH
   // We use the ideal silhouette height as the reference (160px)
   const pxPerCm = 160 / ideal.height
-  const currentHeightPx = (current.height * pxPerCm) + 16 // + padding/offset if needed
-  const previousHeightPx = previous ? (previous.height * pxPerCm) + 16 : null
-  const idealHeightPx = 160 + 16
+  // Use a fixed baseline offset (e.g. 32px for labels)
+  const currentHeightPx = (current.height * pxPerCm)
+  const previousHeightPx = previous ? (previous.height * pxPerCm) : null
+  const idealHeightPx = 160
 
   // Body fat intensity affects width
   const bodyFatIntensity = transform3D?.bodyFatIntensity || 0
@@ -256,9 +257,9 @@ function AdvancedSilhouetteView({ current, previous, ideal, healthStatus, transf
         </div>
       )}
 
-      <div className="flex justify-center items-end gap-12 min-h-[340px] relative py-8 px-12">
+      <div className="flex justify-center items-end gap-12 min-h-[380px] relative py-8 px-12 pt-16">
         {/* Vertical Ruler */}
-        <div className="absolute left-4 bottom-8 top-8 w-12 border-r border-slate-200 dark:border-white/10 z-0">
+        <div className="absolute left-6 bottom-[128px] top-8 w-12 border-r border-slate-200 dark:border-white/10 z-0">
           {[...Array(Math.ceil(Math.max(current.height, ideal.height, previous?.height || 0) / 10) + 2)].map((_, i) => {
             const cm = i * 10;
             const bottom = cm * pxPerCm;
@@ -273,23 +274,23 @@ function AdvancedSilhouetteView({ current, previous, ideal, healthStatus, transf
 
         {/* Horizontal Guide Lines */}
         {/* Ideal Line */}
-        <div className="absolute left-4 right-4 border-t-2 border-dashed border-green-500/20 z-0 transition-all duration-1000" style={{ bottom: `${idealHeightPx}px` }}>
-           <div className="absolute -top-5 right-0 text-[9px] font-black text-green-500/40 uppercase tracking-tighter">Ideal OMS</div>
+        <div className="absolute left-6 right-6 border-t-2 border-dashed border-green-500/20 z-0 transition-all duration-1000" style={{ bottom: `${idealHeightPx + 128}px` }}>
+           <div className="absolute -top-5 right-0 text-[10px] font-black text-green-500/50 uppercase tracking-tighter">Ideal OMS ({ideal.displayHeight}{heightUnit})</div>
         </div>
         
         {/* Current Line */}
-        <div className="absolute left-4 right-4 border-t-2 border-dashed z-0 transition-all duration-1000" style={{ bottom: `${currentHeightPx}px`, borderColor: `${healthStatus?.color}33` }}>
-           <div className="absolute -top-5 left-12 text-[9px] font-black uppercase tracking-tighter" style={{ color: `${healthStatus?.color}88` }}>Actual ({current.displayHeight}{heightUnit})</div>
+        <div className="absolute left-6 right-6 border-t-2 border-dashed z-0 transition-all duration-1000" style={{ bottom: `${currentHeightPx + 128}px`, borderColor: `${healthStatus?.color}44` }}>
+           <div className="absolute -top-5 left-12 text-[10px] font-black uppercase tracking-tighter" style={{ color: `${healthStatus?.color}aa` }}>Actual ({current.displayHeight}{heightUnit})</div>
         </div>
 
         {/* Previous Line */}
         {previous && (
-          <div className="absolute left-4 right-4 border-t border-dotted border-slate-400/20 z-0 transition-all duration-1000" style={{ bottom: `${previousHeightPx}px` }}>
+          <div className="absolute left-6 right-6 border-t border-dotted border-slate-400/30 z-0 transition-all duration-1000" style={{ bottom: `${previousHeightPx + 128}px` }}>
           </div>
         )}
 
         {/* Ideal Ghost (wireframe reference) */}
-        <div className="absolute inset-0 flex justify-center items-end pointer-events-none opacity-20">
+        <div className="absolute inset-x-12 bottom-32 flex justify-center items-end pointer-events-none opacity-20 z-0">
           <FriendlyChildSilhouette
             heightScale={idealScale}
             widthScale={1}
@@ -301,13 +302,15 @@ function AdvancedSilhouetteView({ current, previous, ideal, healthStatus, transf
         {/* Previous consultation (gray silhouette) */}
         {previous && previousHeightScale && (
           <div className="flex flex-col items-center z-10">
-            <FriendlyChildSilhouette
-              heightScale={previousHeightScale}
-              widthScale={1}
-              color="#cbd5e1"
-              bodyFat={0}
-            />
-            <div className="mt-4 text-center bg-white/80 dark:bg-gray-700/80 rounded-xl px-4 py-2 shadow-sm">
+            <div className="h-[200px] flex items-end">
+              <FriendlyChildSilhouette
+                heightScale={previousHeightScale}
+                widthScale={1}
+                color="#cbd5e1"
+                bodyFat={0}
+              />
+            </div>
+            <div className="mt-4 text-center bg-white/80 dark:bg-gray-700/80 rounded-xl px-4 py-2 shadow-sm min-h-[52px]">
               <p className="text-sm font-semibold text-gray-500">Última Consulta</p>
               <p className="text-xs text-gray-400 mt-1">
                 {previous.displayHeight}{heightUnit} / {previous.displayWeight}{weightUnit}
@@ -318,14 +321,16 @@ function AdvancedSilhouetteView({ current, previous, ideal, healthStatus, transf
 
         {/* Current state (colored by health status) */}
         <div className="flex flex-col items-center z-10">
-          <FriendlyChildSilhouette
-            heightScale={currentHeightScale}
-            widthScale={currentWidthScale}
-            color={healthStatus?.color || "#3b82f6"}
-            bodyFat={bodyFatIntensity}
-            abdominal={abdominalExpansion}
-          />
-          <div className="mt-4 text-center bg-white/80 dark:bg-gray-700/80 rounded-xl px-4 py-2 shadow-sm border-2" style={{ borderColor: healthStatus?.color || '#3b82f6' }}>
+          <div className="h-[200px] flex items-end">
+            <FriendlyChildSilhouette
+              heightScale={currentHeightScale}
+              widthScale={currentWidthScale}
+              color={healthStatus?.color || "#3b82f6"}
+              bodyFat={bodyFatIntensity}
+              abdominal={abdominalExpansion}
+            />
+          </div>
+          <div className="mt-4 text-center bg-white/80 dark:bg-gray-700/80 rounded-xl px-4 py-2 shadow-sm border-2 min-h-[52px]" style={{ borderColor: healthStatus?.color || '#3b82f6' }}>
             <p className="text-sm font-bold" style={{ color: healthStatus?.color || '#3b82f6' }}>
               Actual
             </p>
@@ -337,14 +342,16 @@ function AdvancedSilhouetteView({ current, previous, ideal, healthStatus, transf
 
         {/* Ideal reference */}
         <div className="flex flex-col items-center z-10">
-          <FriendlyChildSilhouette
-            heightScale={idealScale}
-            widthScale={1}
-            color="#22c55e"
-            bodyFat={0}
-            isIdeal={true}
-          />
-          <div className="mt-4 text-center bg-green-50 dark:bg-green-900/30 rounded-xl px-4 py-2 shadow-sm border-2 border-green-300 dark:border-green-700">
+          <div className="h-[200px] flex items-end">
+            <FriendlyChildSilhouette
+              heightScale={idealScale}
+              widthScale={1}
+              color="#22c55e"
+              bodyFat={0}
+              isIdeal={true}
+            />
+          </div>
+          <div className="mt-4 text-center bg-green-50 dark:bg-green-900/30 rounded-xl px-4 py-2 shadow-sm border-2 border-green-300 dark:border-green-700 min-h-[52px]">
             <p className="text-sm font-bold text-green-600 dark:text-green-400">Ideal (CDC)</p>
             <p className="text-xs text-green-500 mt-1">
               {ideal.displayHeight}{heightUnit} / {ideal.displayWeight}{weightUnit}

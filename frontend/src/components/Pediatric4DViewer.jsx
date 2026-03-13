@@ -287,13 +287,51 @@ export default function Pediatric4DViewer({
 
             {/* 3D Scene with CSS transforms */}
             <div
-                className="w-full h-full flex justify-center items-end pb-16 pt-10"
+                className="w-full h-full flex justify-center items-end pb-16 pt-10 relative z-0"
                 style={{
                     transformStyle: 'preserve-3d',
                     transform: `rotateY(${rotateY}deg)`,
                     transition: isDragging ? 'none' : 'transform 0.3s ease-out',
                 }}
             >
+                {/* Horizontal Guide Lines Overlay (Fixed, not rotating) */}
+                <div className="absolute inset-0 pointer-events-none z-10" style={{ transform: 'translateZ(0px)', rotateY: `${-rotateY}deg` }}>
+                    {/* Ruler */}
+                    <div className="absolute left-6 bottom-16 top-8 w-12 border-r border-slate-300/30 dark:border-white/10">
+                        {(() => {
+                            const pxPerCm = 180 / (idealHeight || 100);
+                            return [...Array(Math.ceil(Math.max(currentHeight, idealHeight) / 10) + 2)].map((_, i) => {
+                                const cm = i * 10;
+                                const bottom = cm * pxPerCm;
+                                return (
+                                    <div key={cm} className="absolute left-0 w-full flex items-center" style={{ bottom: `${bottom}px` }}>
+                                        <div className="w-3 h-0.5 bg-slate-400/40 dark:bg-white/20"></div>
+                                        <span className="text-[9px] font-bold text-slate-400 dark:text-gray-500 ml-1">{cm}</span>
+                                    </div>
+                                )
+                            });
+                        })()}
+                    </div>
+
+                    {/* Lines */}
+                    {(() => {
+                        const pxPerCm = 180 / (idealHeight || 100);
+                        const currentY = currentHeight * pxPerCm;
+                        const idealY = 180;
+                        return (
+                            <>
+                                {/* Ideal Line */}
+                                <div className="absolute left-6 right-6 border-t border-dashed border-green-500/30 transition-all duration-1000" style={{ bottom: `${idealY + 64}px` }}>
+                                    <div className="absolute -top-4 right-0 text-[10px] font-black text-green-500/50 uppercase tracking-tighter">Ideal ({idealHeight}cm)</div>
+                                </div>
+                                {/* Current Line */}
+                                <div className="absolute left-6 right-6 border-t-2 border-dashed transition-all duration-1000" style={{ bottom: `${currentY + 64}px`, borderColor: `${patientColor}44` }}>
+                                    <div className="absolute -top-4 left-12 text-[10px] font-black uppercase tracking-tighter" style={{ color: `${patientColor}aa` }}>Actual ({currentHeight}cm)</div>
+                                </div>
+                            </>
+                        )
+                    })()}
+                </div>
                 {/* Ghost ideal (behind, slightly offset) */}
                 <div style={{ transform: 'translateZ(-20px)', position: 'absolute', bottom: 64 }}>
                     <CSS3DBody
