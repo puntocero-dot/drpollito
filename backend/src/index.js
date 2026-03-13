@@ -33,22 +33,24 @@ const allowedOrigins = process.env.CORS_ORIGINS
 
 const corsOptions = {
   origin: function (origin, callback) {
+    // Allow requests with no origin (like mobile apps, curl, or server-to-server)
     if (!origin) return callback(null, true);
     
-    // Strict block of wildcards in production
-    if (process.env.NODE_ENV === 'production' && allowedOrigins.includes('*')) {
-      return callback(new Error('Wildcard origins are not allowed in production'), false);
-    }
+    // Check if origin is in allowed list manually or via regex/includes
+    const isAllowed = allowedOrigins.includes(origin) || 
+                      allowedOrigins.some(ao => ao === '*' || (ao.includes('*') && origin.match(new RegExp(ao.replace(/\*/g, '.*')))));
 
-    if (allowedOrigins.indexOf(origin) !== -1 || process.env.NODE_ENV !== 'production') {
+    if (isAllowed || process.env.NODE_ENV !== 'production') {
       callback(null, true);
     } else {
-      callback(new Error('CORS Policy: Origin not allowed'), false);
+      // Log exactly which origin was rejected to help debugging
+      logger.error(`CORS Policy: Origin ${origin} not allowed. Current allowed origins configuration: ${process.env.CORS_ORIGINS || 'defaults'}`);
+      callback(new Error(`CORS Policy: Origin ${origin} not allowed`), false);
     }
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization']
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
 };
 
 app.use(cors(corsOptions));

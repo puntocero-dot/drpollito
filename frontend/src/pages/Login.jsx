@@ -35,59 +35,69 @@ export default function Login() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-primary-50 to-primary-100 dark:from-gray-900 dark:to-gray-800 flex items-center justify-center p-4">
-      <div className="w-full max-w-md">
-        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-8">
-          {/* Logo */}
-          <div className="text-center mb-8">
-            <div className="inline-flex items-center justify-center w-16 h-16 bg-primary-100 dark:bg-primary-900 rounded-full mb-4">
-              <Stethoscope className="h-8 w-8 text-primary-600 dark:text-primary-400" />
+    <div className="min-h-screen relative overflow-hidden bg-brand-dark flex items-center justify-center p-4">
+      {/* Decorative background elements */}
+      <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-brand-accent/20 rounded-full blur-[120px] animate-pulse" />
+      <div className="absolute bottom-[-10%] right-[-10%] w-[30%] h-[30%] bg-blue-500/10 rounded-full blur-[100px]" />
+      
+      <div className="w-full max-w-lg relative z-10 transition-all duration-500 ease-out animate-in fade-in zoom-in duration-700">
+        <div className="glass-card p-8 md:p-12">
+          {/* Logo & Header */}
+          <div className="text-center mb-10">
+            <div className="inline-flex items-center justify-center w-20 h-20 bg-gradient-to-tr from-brand-accent to-emerald-400 rounded-2xl rotate-3 shadow-lg shadow-emerald-500/20 mb-6 transition-transform hover:rotate-0 duration-500">
+              <Stethoscope className="h-10 w-10 text-white" />
             </div>
-            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">My_Dr</h1>
-            <p className="text-gray-500 dark:text-gray-400 mt-1">Sistema de Gestión Médica Pediátrica</p>
+            <h1 className="text-4xl font-extrabold text-white tracking-tight mb-2">
+              My<span className="text-brand-accent">_</span>Dr
+            </h1>
+            <p className="text-slate-400 font-medium">
+              Gestión Médica de Próxima Generación
+            </p>
           </div>
 
           {/* Error message */}
           {error && (
-            <div className="mb-6 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg flex items-center gap-3 text-red-700 dark:text-red-400">
+            <div className="mb-8 p-4 bg-rose-500/10 border border-rose-500/20 rounded-2xl flex items-center gap-3 text-rose-400 animate-in slide-in-from-top-2 duration-300">
               <AlertCircle className="h-5 w-5 flex-shrink-0" />
-              <span className="text-sm">{error}</span>
+              <span className="text-sm font-medium">{error}</span>
             </div>
           )}
 
           {/* Form */}
-          <form onSubmit={handleSubmit} className="space-y-5">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+          <form onSubmit={handleSubmit} className="space-y-6">
+            <div className="space-y-2">
+              <label className="block text-sm font-semibold text-slate-300 ml-1">
                 Correo electrónico
               </label>
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="input-field"
-                placeholder="doctor@mydr.com"
-                required
-              />
+              <div className="relative group">
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="input-field group-hover:border-brand-accent/50 transition-colors"
+                  placeholder="doctor@mydr.com"
+                  required
+                />
+              </div>
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+            <div className="space-y-2">
+              <label className="block text-sm font-semibold text-slate-300 ml-1">
                 Contraseña
               </label>
-              <div className="relative">
+              <div className="relative group">
                 <input
                   type={showPassword ? 'text' : 'password'}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="input-field pr-10"
+                  className="input-field pr-12 group-hover:border-brand-accent/50 transition-colors"
                   placeholder="••••••••"
                   required
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white transition-colors"
                 >
                   {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
                 </button>
@@ -97,30 +107,45 @@ export default function Login() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full btn-primary py-3 flex items-center justify-center gap-2"
+              className="w-full btn-primary py-4 text-lg mt-4 group"
             >
               {loading ? (
-                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white" />
+                <div className="flex items-center gap-3">
+                  <div className="animate-spin rounded-full h-5 w-5 border-2 border-white/30 border-t-white" />
+                  <span>Autenticando...</span>
+                </div>
               ) : (
-                'Iniciar Sesión'
+                <span className="flex items-center justify-center gap-2">
+                  Entrar al Portal <ChevronRight className="h-5 w-5 group-hover:translate-x-1 transition-transform" />
+                </span>
               )}
             </button>
           </form>
 
           {/* Demo credentials */}
-          <div className="mt-6 p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
-            <p className="text-xs text-gray-500 dark:text-gray-400 mb-2 font-medium">Credenciales de prueba:</p>
-            <div className="space-y-1 text-xs text-gray-600 dark:text-gray-300">
-              <p><strong>Admin:</strong> admin@mydr.com</p>
-              <p><strong>Doctor:</strong> doctor@mydr.com</p>
-              <p><strong>Secretaria:</strong> secretaria@mydr.com</p>
-              <p className="text-gray-400 dark:text-gray-500">Contraseña: 123456</p>
+          <div className="mt-10 pt-8 border-t border-white/5">
+            <p className="text-xs text-slate-500 mb-4 font-bold uppercase tracking-widest text-center">Acceso Rápido (Demo)</p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {[
+                { label: 'Admin', email: 'admin@mydr.com' },
+                { label: 'Doctor', email: 'doctor@mydr.com' }
+              ].map(cred => (
+                <button
+                  key={cred.email}
+                  type="button"
+                  onClick={() => { setEmail(cred.email); setPassword('123456'); }}
+                  className="p-3 bg-white/5 hover:bg-white/10 border border-white/5 rounded-xl text-left transition-colors group"
+                >
+                  <p className="text-[10px] text-brand-accent font-bold uppercase mb-0.5">{cred.label}</p>
+                  <p className="text-xs text-slate-300 truncate group-hover:text-white">{cred.email}</p>
+                </button>
+              ))}
             </div>
           </div>
         </div>
 
-        <p className="text-center text-sm text-gray-500 dark:text-gray-400 mt-6">
-          © 2024 My_Dr - Sistema de Gestión Médica Pediátrica
+        <p className="text-center text-xs text-slate-500 mt-8 font-medium">
+          © {new Date().getFullYear()} My_Dr • Plataforma Médica Segura
         </p>
       </div>
     </div>

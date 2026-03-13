@@ -47,109 +47,121 @@ export default function Patients() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-10 animate-in fade-in slide-in-from-bottom-4 duration-700">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-6">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Pacientes</h1>
-          <p className="text-gray-500 dark:text-gray-400">Gestión de expedientes pediátricos</p>
+          <h1 className="text-4xl font-extrabold text-brand-dark dark:text-white tracking-tight">
+            Pacientes
+          </h1>
+          <p className="text-brand-muted font-medium mt-1">Gestión avanzada de expedientes pediátricos</p>
         </div>
         <button
           onClick={() => setShowModal(true)}
-          className="btn-primary flex items-center gap-2"
+          className="btn-primary flex items-center gap-2 group whitespace-nowrap"
         >
-          <Plus className="h-5 w-5" />
-          Nuevo Paciente
+          <div className="p-1 bg-white/20 rounded-md group-hover:rotate-90 transition-transform">
+            <Plus className="h-4 w-4" />
+          </div>
+          Nuevo Registro
         </button>
       </div>
 
-      {/* Search */}
-      <form onSubmit={handleSearch} className="flex gap-2">
+      {/* Search & Filters */}
+      <form onSubmit={handleSearch} className="flex gap-4 p-2 glass-card rounded-2xl">
         <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
+          <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-brand-muted" />
           <input
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Buscar por nombre, expediente o DUI del padre..."
-            className="input-field pl-10"
+            placeholder="Buscar por nombre, expediente o representante..."
+            className="w-full bg-transparent border-none focus:ring-0 pl-12 py-4 text-brand-dark dark:text-white font-medium placeholder:text-slate-400"
           />
         </div>
-        <button type="submit" className="btn-primary">
+        <button type="submit" className="btn-primary py-3 px-8 rounded-xl hidden md:block">
           Buscar
         </button>
       </form>
 
       {/* Patients List */}
       {loading ? (
-        <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
+        <div className="flex flex-col items-center justify-center h-80 gap-4">
+          <div className="animate-spin rounded-full h-12 w-12 border-4 border-brand-accent/20 border-t-brand-accent"></div>
+          <p className="text-brand-muted font-bold animate-pulse">Cargando expedientes...</p>
         </div>
       ) : patients.length > 0 ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 stagger-items">
           {patients.map((patient) => (
             <Link
               key={patient.id}
               to={`/patients/${patient.id}`}
-              className="card p-4 hover:shadow-md transition-shadow"
+              className="glass-card glass-card-hover p-6 group flex flex-col justify-between"
             >
-              <div className="flex items-start gap-4">
-                <div className="w-12 h-12 rounded-full bg-primary-100 dark:bg-primary-900 flex items-center justify-center flex-shrink-0">
-                  <User className="h-6 w-6 text-primary-600 dark:text-primary-400" />
+              <div>
+                <div className="flex items-start justify-between mb-4">
+                  <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-slate-100 to-slate-50 dark:from-white/10 dark:to-white/5 border border-white/20 flex items-center justify-center shadow-inner group-hover:scale-110 transition-transform duration-500">
+                    <User className="h-7 w-7 text-brand-accent" />
+                  </div>
+                  <div className="flex flex-col items-end">
+                    <span className="text-[10px] font-black text-brand-muted uppercase tracking-widest mb-1">Registro</span>
+                    <span className="text-xs font-bold text-brand-dark dark:text-white bg-slate-100 dark:bg-white/10 px-2 py-1 rounded-md">
+                      #{patient.medicalRecordNumber}
+                    </span>
+                  </div>
                 </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <h3 className="font-semibold text-gray-900 dark:text-white truncate">
-                      {patient.firstName} {patient.lastName}
-                    </h3>
-                    {patient.allergies?.length > 0 && (
-                      <AlertTriangle className="h-4 w-4 text-red-500 flex-shrink-0" />
+
+                <div className="space-y-1">
+                  <h3 className="text-lg font-black text-brand-dark dark:text-white truncate group-hover:text-brand-accent transition-colors">
+                    {patient.firstName} {patient.lastName}
+                  </h3>
+                  <div className="flex items-center gap-2 text-brand-muted font-semibold text-sm">
+                    <Calendar className="h-4 w-4" />
+                    {calculateAge(patient.dateOfBirth)}
+                    <span className="mx-1 opacity-20">•</span>
+                    <span className={patient.gender === 'male' ? 'text-blue-500' : 'text-pink-500'}>
+                      {patient.gender === 'male' ? 'Niño' : 'Niña'}
+                    </span>
+                  </div>
+                </div>
+
+                {patient.allergies?.length > 0 && (
+                  <div className="mt-4 pt-4 border-t border-white/10 flex flex-wrap gap-2">
+                    {patient.allergies.slice(0, 2).map((allergy, i) => (
+                      <span key={i} className="px-2 py-1 bg-rose-500/10 text-rose-500 text-[10px] font-black uppercase tracking-tight rounded-md border border-rose-500/20">
+                        {allergy}
+                      </span>
+                    ))}
+                    {patient.allergies.length > 2 && (
+                      <span className="px-2 py-1 bg-slate-100 dark:bg-white/10 text-brand-muted text-[10px] font-black rounded-md">
+                        +{patient.allergies.length - 2}
+                      </span>
                     )}
                   </div>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">
-                    {patient.medicalRecordNumber}
-                  </p>
-                  <div className="flex items-center gap-4 mt-2 text-sm text-gray-500 dark:text-gray-400">
-                    <span className="flex items-center gap-1">
-                      <Calendar className="h-4 w-4" />
-                      {calculateAge(patient.dateOfBirth)}
-                    </span>
-                    <span className={patient.gender === 'male' ? 'text-blue-500' : 'text-pink-500'}>
-                      {patient.gender === 'male' ? '♂' : '♀'}
-                    </span>
-                  </div>
-                  {patient.allergies?.length > 0 && (
-                    <div className="mt-2 flex flex-wrap gap-1">
-                      {patient.allergies.slice(0, 2).map((allergy, i) => (
-                        <span key={i} className="badge badge-danger text-xs">
-                          {allergy}
-                        </span>
-                      ))}
-                      {patient.allergies.length > 2 && (
-                        <span className="badge badge-danger text-xs">
-                          +{patient.allergies.length - 2}
-                        </span>
-                      )}
-                    </div>
-                  )}
-                </div>
-                <ChevronRight className="h-5 w-5 text-gray-400 flex-shrink-0" />
+                )}
+              </div>
+
+              <div className="mt-6 flex items-center justify-between opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                <span className="text-xs font-bold text-brand-accent">Ver expediente completo</span>
+                <ChevronRight className="h-4 w-4 text-brand-accent translate-x-0 group-hover:translate-x-1 transition-transform" />
               </div>
             </Link>
           ))}
         </div>
       ) : (
-        <div className="card p-12 text-center">
-          <User className="h-12 w-12 mx-auto text-gray-400 mb-4" />
-          <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
-            No se encontraron pacientes
+        <div className="glass-card p-20 text-center animate-float">
+          <div className="w-24 h-24 bg-slate-100 dark:bg-white/5 rounded-full flex items-center justify-center mx-auto mb-8">
+            <User className="h-12 w-12 text-slate-300" />
+          </div>
+          <h3 className="text-2xl font-black text-brand-dark dark:text-white mb-3">
+            Sin pacientes registrados
           </h3>
-          <p className="text-gray-500 dark:text-gray-400 mb-4">
-            {search ? 'Intenta con otros términos de búsqueda' : 'Comienza agregando tu primer paciente'}
+          <p className="text-brand-muted font-medium mb-10 max-w-sm mx-auto">
+            {search ? 'No encontramos coincidencias para tu búsqueda. Intenta con otros términos.' : 'Tu clínica aún no tiene expedientes. Comienza creando el primero ahora mismo.'}
           </p>
-          <button onClick={() => setShowModal(true)} className="btn-primary">
-            <Plus className="h-5 w-5 mr-2" />
-            Agregar Paciente
+          <button onClick={() => setShowModal(true)} className="btn-primary py-4 px-10 rounded-2xl mx-auto flex items-center gap-3">
+            <Plus className="h-5 w-5" />
+            Empezar Ahora
           </button>
         </div>
       )}
@@ -205,42 +217,44 @@ function NewPatientModal({ onClose, onSuccess }) {
   }
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-        <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Nuevo Paciente</h2>
-          <button onClick={onClose} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg">
-            <X className="h-5 w-5 text-gray-500" />
+    <div className="fixed inset-0 bg-brand-dark/40 backdrop-blur-md flex items-center justify-center z-[100] p-4 animate-in fade-in duration-300">
+      <div className="glass-card shadow-2xl w-full max-w-3xl max-h-[90vh] overflow-hidden flex flex-col animate-in zoom-in-95 duration-500">
+        <div className="flex items-center justify-between p-8 border-b border-white/10">
+          <div>
+            <h2 className="text-2xl font-black text-brand-dark dark:text-white">Nuevo Paciente</h2>
+            <p className="text-sm font-medium text-brand-muted">Ingresa los datos del nuevo expediente pediátrico</p>
+          </div>
+          <button onClick={onClose} className="p-3 hover:bg-slate-100 dark:hover:bg-white/5 rounded-2xl transition-colors">
+            <X className="h-6 w-6 text-brand-muted" />
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-4 space-y-4">
+        <form onSubmit={handleSubmit} className="p-8 space-y-8 overflow-y-auto custom-scrollbar flex-1">
           {error && (
-            <div className="p-3 bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400 rounded-lg text-sm">
+            <div className="p-4 bg-rose-500/10 border border-rose-500/20 text-rose-500 rounded-2xl text-sm font-bold flex items-center gap-3">
+              <AlertTriangle className="h-5 w-5" />
               {error}
             </div>
           )}
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Nombre *
-              </label>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <div className="space-y-2">
+              <label className="text-xs font-black text-brand-muted uppercase tracking-widest ml-1">Nombre del Infante</label>
               <input
                 type="text"
                 required
+                placeholder="Ej. Juan Andrés"
                 value={formData.firstName}
                 onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
                 className="input-field"
               />
             </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Apellido *
-              </label>
+            <div className="space-y-2">
+              <label className="text-xs font-black text-brand-muted uppercase tracking-widest ml-1">Apellidos</label>
               <input
                 type="text"
                 required
+                placeholder="Ej. Pérez García"
                 value={formData.lastName}
                 onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
                 className="input-field"
@@ -248,11 +262,9 @@ function NewPatientModal({ onClose, onSuccess }) {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Fecha de Nacimiento *
-              </label>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-8">
+            <div className="space-y-2">
+              <label className="text-xs font-black text-brand-muted uppercase tracking-widest ml-1">Fecha Nacimiento</label>
               <input
                 type="date"
                 required
@@ -261,28 +273,24 @@ function NewPatientModal({ onClose, onSuccess }) {
                 className="input-field"
               />
             </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Género *
-              </label>
+            <div className="space-y-2">
+              <label className="text-xs font-black text-brand-muted uppercase tracking-widest ml-1">Género</label>
               <select
                 value={formData.gender}
                 onChange={(e) => setFormData({ ...formData, gender: e.target.value })}
-                className="input-field"
+                className="input-field cursor-pointer"
               >
                 <option value="male">Masculino</option>
                 <option value="female">Femenino</option>
                 <option value="other">Otro</option>
               </select>
             </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Tipo de Sangre
-              </label>
+            <div className="space-y-2">
+              <label className="text-xs font-black text-brand-muted uppercase tracking-widest ml-1">RH / Sangre</label>
               <select
                 value={formData.bloodType}
                 onChange={(e) => setFormData({ ...formData, bloodType: e.target.value })}
-                className="input-field"
+                className="input-field cursor-pointer"
               >
                 <option value="unknown">Desconocido</option>
                 <option value="A+">A+</option>
@@ -297,96 +305,95 @@ function NewPatientModal({ onClose, onSuccess }) {
             </div>
           </div>
 
-          <div className="border-t border-gray-200 dark:border-gray-700 pt-4">
-            <h3 className="text-sm font-medium text-gray-900 dark:text-white mb-3">Datos de Nacimiento</h3>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Peso al nacer (g)
-                </label>
+          <div className="bg-slate-50 dark:bg-white/5 p-6 rounded-[2rem] border border-white/10">
+            <h3 className="text-xs font-black text-brand-dark dark:text-brand-accent uppercase tracking-widest mb-6 px-1">Antecedentes de Nacimiento</h3>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+              <div className="space-y-2">
+                <label className="text-[10px] font-black text-brand-muted uppercase tracking-wider ml-1">Peso (g)</label>
                 <input
                   type="number"
                   value={formData.birthWeightGrams}
                   onChange={(e) => setFormData({ ...formData, birthWeightGrams: e.target.value })}
-                  className="input-field"
+                  className="input-field bg-white dark:bg-brand-dark/50"
                   placeholder="3200"
                 />
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Talla al nacer (cm)
-                </label>
+              <div className="space-y-2">
+                <label className="text-[10px] font-black text-brand-muted uppercase tracking-wider ml-1">Talla (cm)</label>
                 <input
                   type="number"
                   step="0.1"
                   value={formData.birthHeightCm}
                   onChange={(e) => setFormData({ ...formData, birthHeightCm: e.target.value })}
-                  className="input-field"
+                  className="input-field bg-white dark:bg-brand-dark/50"
                   placeholder="50"
                 />
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Semanas de gestación
-                </label>
+              <div className="space-y-2">
+                <label className="text-[10px] font-black text-brand-muted uppercase tracking-wider ml-1">Semanas</label>
                 <input
                   type="number"
                   value={formData.gestationalWeeks}
                   onChange={(e) => setFormData({ ...formData, gestationalWeeks: e.target.value })}
-                  className="input-field"
+                  className="input-field bg-white dark:bg-brand-dark/50"
                   placeholder="40"
                 />
               </div>
             </div>
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Alergias (separadas por coma)
-            </label>
-            <input
-              type="text"
+          <div className="space-y-2">
+            <label className="text-xs font-black text-brand-muted uppercase tracking-widest ml-1">Alergias Conocidas</label>
+            <textarea
+              rows="2"
               value={formData.allergies}
               onChange={(e) => setFormData({ ...formData, allergies: e.target.value })}
-              className="input-field"
-              placeholder="Penicilina, Mariscos"
+              className="input-field py-3 resize-none"
+              placeholder="Ej. Penicilina, Proteína de leche, etc. (separados por coma)"
             />
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Aseguradora
-              </label>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <div className="space-y-2">
+              <label className="text-xs font-black text-brand-muted uppercase tracking-widest ml-1">Aseguradora</label>
               <input
                 type="text"
                 value={formData.insuranceProvider}
                 onChange={(e) => setFormData({ ...formData, insuranceProvider: e.target.value })}
                 className="input-field"
+                placeholder="Ej. ASESUISA"
               />
             </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Número de Póliza
-              </label>
+            <div className="space-y-2">
+              <label className="text-xs font-black text-brand-muted uppercase tracking-widest ml-1">Nº Póliza</label>
               <input
                 type="text"
                 value={formData.insurancePolicyNumber}
                 onChange={(e) => setFormData({ ...formData, insurancePolicyNumber: e.target.value })}
                 className="input-field"
+                placeholder="Ej. POL-123456"
               />
             </div>
           </div>
-
-          <div className="flex justify-end gap-3 pt-4 border-t border-gray-200 dark:border-gray-700">
-            <button type="button" onClick={onClose} className="btn-secondary">
-              Cancelar
-            </button>
-            <button type="submit" disabled={loading} className="btn-primary">
-              {loading ? 'Guardando...' : 'Crear Paciente'}
-            </button>
-          </div>
         </form>
+
+        <div className="p-8 border-t border-white/10 bg-slate-50/50 dark:bg-black/10 flex justify-end gap-4">
+          <button type="button" onClick={onClose} className="px-8 py-3.5 text-brand-muted font-bold hover:text-brand-dark dark:hover:text-white transition-colors">
+            Descartar
+          </button>
+          <button 
+            onClick={handleSubmit}
+            disabled={loading} 
+            className="btn-primary px-10 py-3.5 rounded-2xl shadow-lg shadow-brand-accent/20"
+          >
+            {loading ? (
+              <div className="flex items-center gap-2">
+                <div className="animate-spin h-4 w-4 border-2 border-white/30 border-t-white rounded-full" />
+                <span>Guardando...</span>
+              </div>
+            ) : 'Crear Expediente'}
+          </button>
+        </div>
       </div>
     </div>
   )

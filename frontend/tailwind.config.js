@@ -8,23 +8,28 @@ export default {
   theme: {
     extend: {
       colors: {
-        primary: {
-          50: '#eff6ff',
-          100: '#dbeafe',
-          200: '#bfdbfe',
-          300: '#93c5fd',
-          400: '#60a5fa',
-          500: '#3b82f6',
-          600: '#2563eb',
-          700: '#1d4ed8',
-          800: '#1e40af',
-          900: '#1e3a8a',
+        brand: {
+          dark: '#0f172a',    // Midnight Navy
+          primary: '#1e293b', // Deep Slate
+          accent: '#10b981',  // Sage Green
+          muted: '#64748b',   // Cool Gray
+          surface: '#f8fafc', // Off White
         },
-        medical: {
-          light: '#e0f2fe',
-          DEFAULT: '#0ea5e9',
-          dark: '#0369a1',
+        glass: {
+          white: 'rgba(255, 255, 255, 0.7)',
+          dark: 'rgba(15, 23, 42, 0.7)',
         }
+      },
+      fontFamily: {
+        sans: ['Inter', 'system-ui', 'sans-serif'],
+        display: ['Sora', 'system-ui', 'sans-serif'],
+      },
+      backdropBlur: {
+        xs: '2px',
+      },
+      boxShadow: {
+        'glass-light': '0 8px 32px 0 rgba(31, 38, 135, 0.07)',
+        'glass-dark': '0 8px 32px 0 rgba(0, 0, 0, 0.37)',
       }
     },
   },
