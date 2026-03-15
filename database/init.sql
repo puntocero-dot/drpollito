@@ -321,6 +321,10 @@ CREATE TABLE prescription_items (
     interaction_warnings TEXT[],
     allergy_warnings TEXT[],
     
+    -- Tracking
+    last_dose_at TIMESTAMP,
+    next_dose_at TIMESTAMP,
+    
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -403,6 +407,17 @@ CREATE TABLE patient_vaccinations (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+-- Medication administration logs
+CREATE TABLE medication_logs (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    prescription_item_id UUID REFERENCES prescription_items(id) ON DELETE CASCADE,
+    patient_id UUID REFERENCES patients(id) ON DELETE CASCADE,
+    administered_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    status VARCHAR(50) NOT NULL, -- taken, missed, delayed
+    notes TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
 -- =====================================================
 -- DOCUMENTS
 -- =====================================================
@@ -415,7 +430,7 @@ CREATE TABLE documents (
     
     type document_type NOT NULL,
     title VARCHAR(255),
-    content JSONB DEFAULT '{}',
+    content TEXT,
     
     file_url TEXT,
     qr_verification_code VARCHAR(100) UNIQUE,
