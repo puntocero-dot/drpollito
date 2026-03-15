@@ -37,11 +37,9 @@ function getProportionsForAge(ageMonths) {
 // ──────────────────────────────────────────────
 // CSS 3D Body — Pure CSS with drag-to-rotate
 // ──────────────────────────────────────────────
-function CSS3DBody({ height = 180, widthScale = 1, bodyFat = 0, color = '#3b82f6', isGhost = false, label, sublabel, borderColor }) {
-    const proportions = getProportionsForAge(24) // will be overridden by parent
+function CSS3DBody({ height = 180, widthScale = 1, bodyFat = 0, color = '#3b82f6', isGhost = false, label, sublabel, borderColor, ageMonths = 24 }) {
+    const proportions = getProportionsForAge(ageMonths)
     
-    // Calibración para que la suma de las partes sea exactamente 'height'
-    // headRatio (0.13 a 0.25) determina cuánto de la altura total es cabeza
     const headH = height * proportions.headRatio
     const bodyH = height - headH
     
@@ -88,9 +86,8 @@ function CSS3DBody({ height = 180, widthScale = 1, bodyFat = 0, color = '#3b82f6
                 marginTop: -(neckH * 0.3)
             }}></div>
 
-            {/* Upper body = arms + torso */}
+            {/* Upper body */}
             <div className="flex items-start" style={{ transition: 'all 0.6s ease' }}>
-                {/* Left Arm */}
                 <div style={{
                     width: armW, height: armH,
                     borderRadius: `${armW / 2}px`,
@@ -101,7 +98,6 @@ function CSS3DBody({ height = 180, widthScale = 1, bodyFat = 0, color = '#3b82f6
                     transition: 'all 0.6s ease',
                 }}></div>
 
-                {/* Torso */}
                 <div style={{
                     width: torsoW, height: torsoH,
                     borderRadius: `${torsoW * 0.15}px / ${torsoH * 0.1}px`,
@@ -110,7 +106,6 @@ function CSS3DBody({ height = 180, widthScale = 1, bodyFat = 0, color = '#3b82f6
                     position: 'relative',
                     transition: 'all 0.6s ease',
                 }}>
-                    {/* Abdomen bulge for overweight */}
                     {bodyFat > 0.2 && !isGhost && (
                         <div style={{
                             position: 'absolute', bottom: -4, left: '50%', transform: 'translateX(-50%)',
@@ -122,7 +117,6 @@ function CSS3DBody({ height = 180, widthScale = 1, bodyFat = 0, color = '#3b82f6
                     )}
                 </div>
 
-                {/* Right Arm */}
                 <div style={{
                     width: armW, height: armH,
                     borderRadius: `${armW / 2}px`,
@@ -183,7 +177,6 @@ export default function Pediatric4DViewer({
     const [isDragging, setIsDragging] = useState(false)
     const lastX = useRef(0)
 
-    // Drag-to-rotate logic
     const handlePointerDown = useCallback((e) => {
         setIsDragging(true)
         lastX.current = e.clientX || e.touches?.[0]?.clientX || 0
@@ -211,32 +204,29 @@ export default function Pediatric4DViewer({
     }, [handlePointerUp, handlePointerMove])
 
     // ──────────────────────────────────────────────
-    // UNIFIED COORDINATE SYSTEM & ZOOM LOGIC
+    // UNIFIED COORDINATE SYSTEM (ABSOLUTE - NO ZOOM)
     // ──────────────────────────────────────────────
     const heights = [currentHeight, idealHeight].filter(Boolean)
-    const minCm = Math.min(...heights)
     const maxCm = Math.max(...heights)
     
-    const VIEW_MARGIN = 15 // cm
-    const viewMinCm = Math.max(0, minCm - VIEW_MARGIN)
-    const viewMaxCm = maxCm + VIEW_MARGIN
-    const cmRange = viewMaxCm - viewMinCm
+    // Scene height and extra padding for the ruler
+    const RULER_PADDING = 20 
+    const SCENE_LIMIT_CM = maxCm + RULER_PADDING
+    const VIEWPORT_HEIGHT = 280 
     
-    const VIEWPORT_HEIGHT = 280 // px
-    const pxPerCm = VIEWPORT_HEIGHT / cmRange
+    const pxPerCm = VIEWPORT_HEIGHT / SCENE_LIMIT_CM
 
-    const getPos = (cm) => (cm - viewMinCm) * pxPerCm
+    const getPos = (cm) => cm * pxPerCm
     
     const currentHeightPx = currentHeight * pxPerCm
     const idealHeightPx = idealHeight * pxPerCm
-    const floorY = getPos(0)
+    const floorY = 0
     
     const bodyFat = transform3D?.bodyFatIntensity || 0
     const widthScale = transform3D?.scaleXZ || 1
     
-    const patientColor = '#94a3b8' // Cambiado a Gris como solicitó el usuario
-    const idealColor = '#22c55e'   // Verde OMS
-    const lastColor = '#3b82f6'    // Azul Última Consulta
+    const patientColor = '#94a3b8' 
+    const idealColor = '#22c55e'   
 
     const percentileLabel = useMemo(() => {
         if (!transform3D?.ratioWeight) return null
@@ -265,7 +255,6 @@ export default function Pediatric4DViewer({
             style={{ height: 500, cursor: isDragging ? 'grabbing' : 'grab', perspective: '800px' }}
             onPointerDown={handlePointerDown}
         >
-            {/* Health Status Banner */}
             {healthStatus && (
                 <div
                     className="absolute top-3 left-3 z-10 px-4 py-2 rounded-xl text-white text-sm font-semibold shadow-lg"
@@ -276,7 +265,6 @@ export default function Pediatric4DViewer({
                 </div>
             )}
 
-            {/* Metrics overlay */}
             {transform3D && (
                 <div className="absolute top-3 right-3 z-10 flex flex-col gap-1.5">
                     <div className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm rounded-lg px-3 py-1.5 text-center shadow-sm">
@@ -287,21 +275,13 @@ export default function Pediatric4DViewer({
                         <p className="text-[9px] text-gray-500 uppercase tracking-wide">Talla</p>
                         <p className="text-sm font-bold text-blue-600">{currentHeight} cm</p>
                     </div>
-                    <div className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm rounded-lg px-3 py-1.5 text-center shadow-sm">
-                        <p className="text-[9px] text-gray-500 uppercase tracking-wide">Ratio</p>
-                        <p className="text-sm font-bold" style={{ color: patientColor }}>
-                            {(transform3D.ratioWeight * 100).toFixed(0)}%
-                        </p>
-                    </div>
                 </div>
             )}
 
-            {/* Interaction hint */}
             <div className="absolute bottom-3 left-3 z-10 px-3 py-1.5 bg-black/30 backdrop-blur-sm rounded-lg text-[10px] text-white/80 flex items-center gap-1.5">
                 <span>🖱️</span> Arrastra para rotar
             </div>
 
-            {/* Legend */}
             <div className="absolute bottom-3 right-3 z-20 flex gap-2 text-[10px]">
                 <span className="flex items-center gap-1 bg-black/30 backdrop-blur-sm text-white/80 px-2 py-1 rounded-lg">
                     <span className="w-2 h-2 rounded-full" style={{ backgroundColor: patientColor }}></span> Actual
@@ -311,7 +291,6 @@ export default function Pediatric4DViewer({
                 </span>
             </div>
 
-            {/* 3D Scene with CSS transforms */}
             <div
                 className="w-full h-full flex justify-center items-end pb-16 pt-10 relative z-0"
                 style={{
@@ -320,25 +299,18 @@ export default function Pediatric4DViewer({
                     transition: isDragging ? 'none' : 'transform 0.3s ease-out',
                 }}
             >
-                {/* Horizontal Guide Lines Overlay (Fixed, not rotating) - We subtract rotation to keep it flat relative to viewer */}
-                <div className="absolute inset-0 pointer-events-none z-10" style={{ transform: 'translateZ(0px)', rotateY: `${-rotateY}deg` }}>
-                    {/* Ruler */}
+                <div className="absolute inset-0 pointer-events-none z-10" style={{ transform: 'translateZ(0px)', transformStyle: 'preserve-3d', rotateY: `${-rotateY}deg` }}>
                     <div className="absolute left-6 bottom-16 h-[280px] w-12 border-r border-slate-300/30 dark:border-white/10">
                         {(() => {
                             const ticks = [];
-                            const step = 5;
-                            const startTick = Math.floor(viewMinCm / step) * step;
-                            const endTick = Math.ceil(viewMaxCm / step) * step;
-
-                            for (let cm = startTick; cm <= endTick; cm += step) {
+                            const step = 10;
+                            for (let cm = 0; cm <= SCENE_LIMIT_CM; cm += step) {
                                 const bottom = getPos(cm);
                                 if (bottom >= 0 && bottom <= VIEWPORT_HEIGHT) {
                                     ticks.push(
                                         <div key={cm} className="absolute left-0 w-full flex items-center" style={{ bottom: `${bottom}px` }}>
-                                            <div className={`h-0.5 bg-slate-400/40 dark:bg-white/20 ${cm % 10 === 0 ? 'w-3' : 'w-1.5'}`}></div>
-                                            {cm % 10 === 0 && (
-                                                <span className="text-[9px] font-bold text-slate-400 dark:text-gray-500 ml-1">{cm}</span>
-                                            )}
+                                            <div className="h-0.5 bg-slate-400/40 dark:bg-white/20 w-3"></div>
+                                            <span className="text-[9px] font-bold text-slate-400 dark:text-gray-500 ml-1">{cm}</span>
                                         </div>
                                     );
                                 }
@@ -347,17 +319,14 @@ export default function Pediatric4DViewer({
                         })()}
                     </div>
 
-                    {/* Lines crossing the current child */}
                     {(() => {
                         const currentY = getPos(currentHeight);
                         const idealY = getPos(idealHeight);
                         return (
                             <>
-                                {/* Ideal Line (Green) */}
                                 <div className="absolute left-6 right-6 border-t border-dashed border-green-500/40 transition-all duration-1000" style={{ bottom: `${idealY + 64}px` }}>
                                     <div className="absolute -top-4 right-0 text-[10px] font-black text-green-500/60 uppercase tracking-tighter">Ideal ({idealHeight}cm)</div>
                                 </div>
-                                {/* Current Line (Gray) */}
                                 <div className="absolute left-6 right-6 border-t-2 border-dashed border-slate-400/50 transition-all duration-1000" style={{ bottom: `${currentY + 64}px` }}>
                                     <div className="absolute -top-8 left-12 flex flex-col items-start">
                                         <span className="text-[10px] font-black text-slate-500 uppercase tracking-tighter">Actual ({currentHeight}cm)</span>
@@ -371,7 +340,6 @@ export default function Pediatric4DViewer({
                     })()}
                 </div>
 
-                {/* Ghost ideal (behind, slightly offset) */}
                 <div style={{ transform: 'translateZ(-20px)', position: 'absolute', bottom: floorY + 64 }}>
                     <CSS3DBody
                         height={idealHeightPx}
@@ -382,11 +350,11 @@ export default function Pediatric4DViewer({
                         label="Ideal (OMS P50)"
                         sublabel={`${idealHeight} cm / ${idealWeight} kg`}
                         borderColor={idealColor}
+                        ageMonths={edadEnMeses}
                     />
                 </div>
 
-                {/* Patient model (front) */}
-                <div style={{ transform: 'translateZ(20px)', position: 'relative', zIndex: 2, bottom: floorY }}>
+                <div style={{ transform: 'translateZ(20px)', position: 'relative', zIndex: 2, bottom: floorY + 64 }}>
                     <CSS3DBody
                         height={currentHeightPx}
                         widthScale={widthScale}
@@ -395,11 +363,11 @@ export default function Pediatric4DViewer({
                         label="Paciente Actual"
                         sublabel={`${currentHeight} cm / ${currentWeight} kg`}
                         borderColor={patientColor}
+                        ageMonths={edadEnMeses}
                     />
                 </div>
             </div>
 
-            {/* Percentile label */}
             {percentileLabel && (
                 <div className="absolute top-14 left-3 z-10 px-3 py-1 rounded-lg text-xs font-medium"
                     style={{ backgroundColor: patientColor + '22', color: '#64748b' }}>

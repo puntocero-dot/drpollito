@@ -1,4 +1,4 @@
-import { lazy, Suspense } from 'react'
+import { lazy, Suspense, useState } from 'react'
 import { usePreferences } from '../context/PreferencesContext'
 
 const Pediatric4DViewer = lazy(() => import('./Pediatric4DViewer'))
@@ -103,7 +103,6 @@ export default function GrowthComparison3D({ data, viewMode = 'bars' }) {
 
   return (
     <div className="bg-gradient-to-b from-slate-50 to-white dark:from-gray-800 dark:to-gray-900 rounded-2xl p-6">
-      {/* Health Status Banner */}
       {healthStatus && (
         <div
           className="mb-6 p-4 rounded-xl text-center text-white font-semibold shadow-md"
@@ -148,7 +147,6 @@ export default function GrowthComparison3D({ data, viewMode = 'bars' }) {
         </div>
       </div>
 
-      {/* Legend */}
       <div className="flex justify-center gap-6 mt-6 text-sm">
         {displayPreviousWeight && (
           <span className="flex items-center gap-2">
@@ -166,7 +164,6 @@ export default function GrowthComparison3D({ data, viewMode = 'bars' }) {
         </span>
       </div>
 
-      {/* Metrics Cards */}
       {transform3D && (
         <div className="mt-6 grid grid-cols-3 gap-3">
           <MetricCard
@@ -222,30 +219,22 @@ function BarColumn({ label, value, max, color, unit, isIdeal }) {
   )
 }
 
-// Advanced silhouette view with friendly child illustration
 function AdvancedSilhouetteView({ current, previous, ideal, healthStatus, transform3D, bmi, weightUnit, heightUnit }) {
-  // ──────────────────────────────────────────────
-  // UNIFIED COORDINATE SYSTEM & ZOOM LOGIC
-  // ──────────────────────────────────────────────
   const heights = [current.height, ideal.height, previous?.height].filter(Boolean)
-  const minCm = Math.min(...heights)
   const maxCm = Math.max(...heights)
   
-  // Define the "Window of Interest" (Zoom)
-  const VIEW_MARGIN = 15 // cm
-  const viewMinCm = Math.max(0, minCm - VIEW_MARGIN)
-  const viewMaxCm = maxCm + VIEW_MARGIN
-  const cmRange = viewMaxCm - viewMinCm
+  const RULER_PADDING = 20
+  const SCENE_LIMIT_CM = maxCm + RULER_PADDING
+  const VIEWPORT_HEIGHT = 280
   
-  const VIEWPORT_HEIGHT = 280 // px
-  const pxPerCm = VIEWPORT_HEIGHT / cmRange
+  const pxPerCm = VIEWPORT_HEIGHT / SCENE_LIMIT_CM
 
-  const getPos = (cm) => (cm - viewMinCm) * pxPerCm
+  const getPos = (cm) => cm * pxPerCm
   
   const currentY = getPos(current.height)
   const idealY = getPos(ideal.height)
   const previousY = previous ? getPos(previous.height) : null
-  const floorY = getPos(0)
+  const floorY = 0
 
   const currentWidthScale = transform3D?.scaleXZ || 1
   const bodyFatIntensity = transform3D?.bodyFatIntensity || 0
@@ -253,7 +242,6 @@ function AdvancedSilhouetteView({ current, previous, ideal, healthStatus, transf
 
   return (
     <div className="bg-gradient-to-b from-blue-50 via-white to-slate-50 dark:from-gray-800 dark:via-gray-850 dark:to-gray-900 rounded-2xl p-6 overflow-hidden">
-      {/* Health Status */}
       {healthStatus && (
         <div
           className="mb-5 p-4 rounded-xl text-center text-white font-semibold shadow-md z-20 relative"
@@ -265,23 +253,17 @@ function AdvancedSilhouetteView({ current, previous, ideal, healthStatus, transf
       )}
 
       <div className="flex justify-center items-end gap-12 h-[380px] relative px-12 pt-16 overflow-hidden bg-slate-50/50 dark:bg-gray-900/20 rounded-xl border border-slate-200 dark:border-gray-800">
-        {/* Vertical Ruler */}
         <div className="absolute left-6 bottom-[100px] h-[280px] w-12 border-r border-slate-200 dark:border-white/10 z-0">
           {(() => {
             const ticks = [];
-            const step = 5;
-            const startTick = Math.floor(viewMinCm / step) * step;
-            const endTick = Math.ceil(viewMaxCm / step) * step;
-            
-            for (let cm = startTick; cm <= endTick; cm += step) {
+            const step = 10;
+            for (let cm = 0; cm <= SCENE_LIMIT_CM; cm += step) {
               const bottom = getPos(cm);
               if (bottom >= 0 && bottom <= VIEWPORT_HEIGHT) {
                 ticks.push(
-                  <div key={cm} className="absolute left-0 w-full flex items-center" style={{ bottom: `${bottom}px` }}>
-                    <div className={`h-0.5 bg-slate-300 dark:bg-white/20 ${cm % 10 === 0 ? 'w-4' : 'w-2'}`}></div>
-                    {cm % 10 === 0 && (
-                      <span className="text-[10px] font-bold text-slate-400 dark:text-gray-500 ml-1.5">{cm}</span>
-                    )}
+                  <div key={cm} className="absolute right-0 flex items-center" style={{ bottom: `${bottom}px` }}>
+                    <span className="text-[10px] font-bold text-slate-400 dark:text-gray-500 mr-1.5">{cm}</span>
+                    <div className="w-3 h-px bg-slate-300 dark:bg-white/20" />
                   </div>
                 );
               }
@@ -290,14 +272,11 @@ function AdvancedSilhouetteView({ current, previous, ideal, healthStatus, transf
           })()}
         </div>
 
-        {/* Horizontal Guide Lines */}
-        {/* Ideal Line (Green) */}
-        <div className="absolute left-6 right-6 border-t-2 border-dashed border-green-500/30 z-0 transition-all duration-1000" style={{ bottom: `${idealY + 100}px` }}>
+        <div className="absolute left-6 right-6 border-t-2 border-dashed border-green-500/30 z-0" style={{ bottom: `${idealY + 100}px` }}>
            <div className="absolute -top-5 right-0 text-[10px] font-black text-green-500/70 uppercase tracking-tighter bg-white/50 dark:bg-gray-900/50 px-1 rounded">Ideal OMS ({ideal.displayHeight}{heightUnit})</div>
         </div>
         
-        {/* Current Line (Gray) */}
-        <div className="absolute left-6 right-6 border-t-2 border-dashed border-slate-400/50 z-20 transition-all duration-1000" style={{ bottom: `${currentY + 100}px` }}>
+        <div className="absolute left-6 right-6 border-t-2 border-dashed border-slate-400/50 z-20" style={{ bottom: `${currentY + 100}px` }}>
            <div className="absolute -top-8 left-12 flex flex-col items-start translate-y-1">
              <span className="text-[10px] font-black text-slate-500 uppercase tracking-tighter bg-white/50 dark:bg-gray-900/50 px-1 rounded">Actual ({current.displayHeight}{heightUnit})</span>
              <span className="text-[11px] font-black px-2 py-0.5 rounded bg-slate-700 text-white shadow-lg border border-slate-500 translate-y-[-2px]">
@@ -306,27 +285,13 @@ function AdvancedSilhouetteView({ current, previous, ideal, healthStatus, transf
            </div>
         </div>
 
-        {/* Previous Line (Blue) */}
         {previous && (
-          <div className="absolute left-6 right-6 border-t-2 border-dashed border-blue-400/30 z-0 transition-all duration-1000" style={{ bottom: `${previousY + 100}px` }}>
+          <div className="absolute left-6 right-6 border-t-2 border-dashed border-blue-400/30 z-0" style={{ bottom: `${previousY + 100}px` }}>
              <div className="absolute -top-5 left-1/3 text-[9px] font-black text-blue-400/70 uppercase tracking-tighter bg-white/50 dark:bg-gray-900/50 px-1 rounded">Anterior ({previous.displayHeight}{heightUnit})</div>
           </div>
         )}
 
-        {/* Silhouettes Container (With Zoom Offset) */}
-        <div className="absolute inset-x-0 bottom-[100px] flex justify-center items-end gap-12 px-12 pointer-events-none" style={{ height: VIEWPORT_HEIGHT }}>
-          {/* Ideal Ghost (wireframe reference) */}
-          <div className="absolute inset-x-12 flex justify-center items-end opacity-20 z-0" style={{ bottom: floorY }}>
-            <FriendlyChildSilhouette
-              targetHeightCm={ideal.height}
-              pxPerCm={pxPerCm}
-              widthScale={1}
-              color="#22c55e"
-              isGhost={true}
-            />
-          </div>
-
-          {/* Previous consultation (Blue silhouette) */}
+        <div className="absolute inset-x-0 bottom-[100px] flex justify-around items-end px-12 pointer-events-none" style={{ height: VIEWPORT_HEIGHT }}>
           {previous && (
             <div className="flex flex-col items-center z-10 relative" style={{ bottom: floorY }}>
               <FriendlyChildSilhouette
@@ -342,7 +307,6 @@ function AdvancedSilhouetteView({ current, previous, ideal, healthStatus, transf
             </div>
           )}
 
-          {/* Current state (Gray silhouette) */}
           <div className="flex flex-col items-center z-10 relative" style={{ bottom: floorY }}>
             <FriendlyChildSilhouette
               targetHeightCm={current.height}
@@ -358,7 +322,6 @@ function AdvancedSilhouetteView({ current, previous, ideal, healthStatus, transf
             </div>
           </div>
 
-          {/* Ideal reference (Green silhouette) */}
           <div className="flex flex-col items-center z-10 relative" style={{ bottom: floorY }}>
             <FriendlyChildSilhouette
               targetHeightCm={ideal.height}
@@ -375,42 +338,30 @@ function AdvancedSilhouetteView({ current, previous, ideal, healthStatus, transf
         </div>
       </div>
 
-      {/* Legend */}
-      <div className="flex justify-center gap-6 mt-4 text-xs text-gray-500">
-        <span className="flex items-center gap-1">
-          <span className="w-8 h-0.5 bg-green-500 opacity-30"></span>
-          Silueta ideal (referencia)
-        </span>
+      <div className="mt-5 grid grid-cols-3 gap-3">
+        <MetricCard
+          label="Ratio Peso"
+          value={`${(transform3D?.ratioWeight * 100).toFixed(0)}%`}
+          color={transform3D?.ratioWeight > 1.15 ? '#ef4444' : transform3D?.ratioWeight > 1.05 ? '#f97316' : transform3D?.ratioWeight < 0.9 ? '#3b82f6' : '#22c55e'}
+          icon="⚖️"
+        />
+        <MetricCard
+          label="Ratio Talla"
+          value={`${(transform3D?.ratioHeight * 100).toFixed(0)}%`}
+          color={transform3D?.ratioHeight < 0.9 ? '#f97316' : '#22c55e'}
+          icon="📏"
+        />
+        <MetricCard
+          label="IMC"
+          value={bmi?.toFixed(1) || '-'}
+          color={healthStatus?.color || '#6b7280'}
+          icon="📊"
+        />
       </div>
-
-      {/* Metrics */}
-      {transform3D && (
-        <div className="mt-5 grid grid-cols-3 gap-3">
-          <MetricCard
-            label="Ratio Peso"
-            value={`${(transform3D.ratioWeight * 100).toFixed(0)}%`}
-            color={transform3D.ratioWeight > 1.15 ? '#ef4444' : transform3D.ratioWeight > 1.05 ? '#f97316' : transform3D.ratioWeight < 0.9 ? '#3b82f6' : '#22c55e'}
-            icon="⚖️"
-          />
-          <MetricCard
-            label="Ratio Talla"
-            value={`${(transform3D.ratioHeight * 100).toFixed(0)}%`}
-            color={transform3D.ratioHeight < 0.9 ? '#f97316' : '#22c55e'}
-            icon="📏"
-          />
-          <MetricCard
-            label="IMC"
-            value={bmi?.toFixed(1) || '-'}
-            color={healthStatus?.color || '#6b7280'}
-            icon="📊"
-          />
-        </div>
-      )}
     </div>
   )
 }
 
-// Medical Formal silhouette: clean, solid shapes with soft gradients
 function FriendlyChildSilhouette({
   targetHeightCm = 160,
   pxPerCm = 1,
@@ -421,18 +372,15 @@ function FriendlyChildSilhouette({
   isGhost = false,
   isIdeal = false
 }) {
-  // SVG coordinates fixed at 100x160 for drawing
   const SVG_BASE_HEIGHT = 160
   const SVG_BASE_WIDTH = 100
 
-  // The actual pixels the SVG will occupy in the container
   const displayHeight = targetHeightCm * pxPerCm
   const displayWidth = (SVG_BASE_WIDTH * (displayHeight / SVG_BASE_HEIGHT)) * widthScale
 
-  // Drawing proportions (internal to the 160 units viewBox)
   const headSize = 38 * (1 + bodyFat * 0.05)
   const neckW = 14 + bodyFat * 3
-  const torsoW = 44 * widthScale * (1 + bodyFat * 0.35)
+  const torsoW = 44 * (1 + bodyFat * 0.35)
   const torsoH = 50 
   const armW = 14 + bodyFat * 4
   const armH = 48
@@ -440,79 +388,44 @@ function FriendlyChildSilhouette({
   const legH = 58
 
   return (
-    <div className="flex flex-col items-center select-none" style={{ height: displayHeight }}>
+    <div className="flex flex-col items-center" style={{ height: displayHeight }}>
       <svg 
         width={displayWidth} 
         height={displayHeight} 
         viewBox={`0 0 ${SVG_BASE_WIDTH} ${SVG_BASE_HEIGHT}`} 
-        className="drop-shadow-sm transition-all duration-700"
+        className="drop-shadow-sm"
       >
         <defs>
-          <linearGradient id={`grad-${color}`} x1="0%" y1="0%" x2="0%" y2="100%">
+          <linearGradient id={`grad-${color.replace('#','')}`} x1="0%" y1="0%" x2="0%" y2="100%">
             <stop offset="0%" style={{ stopColor: color, stopOpacity: isGhost ? 0.3 : 1 }} />
             <stop offset="100%" style={{ stopColor: color, stopOpacity: isGhost ? 0.1 : 0.8 }} />
           </linearGradient>
         </defs>
 
-        {/* Drawing at base 160px height, SVG attribute will scale it to displayHeight */}
         <g transform="translate(50, 0)">
-          {/* Head */}
           <circle 
             cx="0" 
             cy={headSize / 2} 
             r={headSize / 2} 
-            fill={`url(#grad-${color})`}
-            stroke={isGhost ? color : 'none'}
-            strokeDasharray={isGhost ? "2,2" : "none"}
+            fill={`url(#grad-${color.replace('#','')})`}
           />
           
-          {/* Eyes for current/ideal */}
-          {!isGhost && (
+          {!isGhost && !isIdeal && (
             <g opacity="0.6">
               <circle cx="-6" cy={headSize / 2 - 2} r="1.5" fill="white" />
               <circle cx="6" cy={headSize / 2 - 2} r="1.5" fill="white" />
             </g>
           )}
 
-          {/* Body structure starts at headSize */}
           <g transform={`translate(0, ${headSize - 2})`}>
-            {/* Neck */}
-            <rect x={-neckW/2} y="0" width={neckW} height="6" fill={`url(#grad-${color})`} />
-            
-            {/* Shoulders & Torso */}
-            <rect 
-              x={-torsoW/2} 
-              y="4" 
-              width={torsoW} 
-              height={torsoH} 
-              rx={torsoW * 0.2} 
-              fill={`url(#grad-${color})`}
-            />
+            <rect x={-neckW/2} y="0" width={neckW} height="6" fill={`url(#grad-${color.replace('#','')})`} />
+            <rect x={-torsoW/2} y="4" width={torsoW} height={torsoH} rx={torsoW * 0.2} fill={`url(#grad-${color.replace('#','')})`} />
+            <rect x={-torsoW/2 - armW + 2} y="6" width={armW} height={armH} rx={armW/2} fill={`url(#grad-${color.replace('#','')})`} transform="rotate(10)" />
+            <rect x={torsoW/2 - 2} y="6" width={armW} height={armH} rx={armW/2} fill={`url(#grad-${color.replace('#','')})`} transform="rotate(-10)" />
 
-            {/* Arms */}
-            <rect 
-              x={-torsoW/2 - armW + 2} 
-              y="6" 
-              width={armW} 
-              height={armH} 
-              rx={armW/2} 
-              fill={`url(#grad-${color})`} 
-              transform="rotate(10)"
-            />
-            <rect 
-              x={torsoW/2 - 2} 
-              y="6" 
-              width={armW} 
-              height={armH} 
-              rx={armW/2} 
-              fill={`url(#grad-${color})`} 
-              transform="rotate(-10)"
-            />
-
-            {/* Legs */}
             <g transform={`translate(0, ${torsoH + 2})`}>
-              <rect x={-torsoW * 0.3} y="0" width={legW} height={legH} rx={legH * 0.1} fill={`url(#grad-${color})`} />
-              <rect x={torsoW * 0.3 - legW} y="0" width={legW} height={legH} rx={legH * 0.1} fill={`url(#grad-${color})`} />
+              <rect x={-torsoW * 0.3} y="0" width={legW} height={legH} rx={legH * 0.1} fill={`url(#grad-${color.replace('#','')})`} />
+              <rect x={torsoW * 0.3 - legW} y="0" width={legW} height={legH} rx={legH * 0.1} fill={`url(#grad-${color.replace('#','')})`} />
             </g>
           </g>
         </g>
