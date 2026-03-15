@@ -14,27 +14,31 @@ function computeFat(weight, idealWeight, height, idealHeight) {
   else return 0
 }
 
-// ─── MATERIALS ───────────────────────────────────────────────────────────
-const skinMat = new THREE.MeshPhongMaterial({
-  color: 0x7788bb,
-  emissive: 0x221133,
-  shininess: 28,
-  specular: 0x443366,
-})
-
-const skinDarkMat = new THREE.MeshPhongMaterial({
-  color: 0x5566aa,
-  emissive: 0x110022,
-  shininess: 28,
-  specular: 0x443366,
-})
-
-const shortsMat = new THREE.MeshPhongMaterial({ color: 0xcc4466, emissive: 0x330011, shininess: 15 })
-const eyeMat = new THREE.MeshPhongMaterial({ color: 0xffffff, emissive: 0x222222, shininess: 80 })
-const pupilMat = new THREE.MeshPhongMaterial({ color: 0x111122, shininess: 100 })
-
 // ─── BODY BUILDER ────────────────────────────────────────────────────────────
 function buildBody(fat = 0, heightScale = 1, ageMonths = 51, isIdeal = false) {
+  // Instance-specific materials to avoid shared disposal issues
+  const currentSkinMat = new THREE.MeshPhongMaterial({
+    color: isIdeal ? 0x4499aa : 0x7788bb,
+    emissive: isIdeal ? 0x113322 : 0x221133,
+    shininess: 28,
+    specular: 0x443366,
+    transparent: isIdeal,
+    opacity: isIdeal ? 0.6 : 1.0
+  })
+
+  const currentSkinDarkMat = new THREE.MeshPhongMaterial({
+    color: isIdeal ? 0x337788 : 0x5566aa,
+    emissive: isIdeal ? 0x0a221a : 0x110022,
+    shininess: 28,
+    specular: 0x443366,
+    transparent: isIdeal,
+    opacity: isIdeal ? 0.6 : 1.0
+  })
+
+  const shortsMat = new THREE.MeshPhongMaterial({ color: 0xcc4466, emissive: 0x330011, shininess: 15 })
+  const eyeMat = new THREE.MeshPhongMaterial({ color: 0xffffff, emissive: 0x222222, shininess: 80 })
+  const pupilMat = new THREE.MeshPhongMaterial({ color: 0x111122, shininess: 100 })
+
   const root = new THREE.Group()
 
   // Age-based head proportion
@@ -47,23 +51,9 @@ function buildBody(fat = 0, heightScale = 1, ageMonths = 51, isIdeal = false) {
   const fwL = 1 + fat * 0.70   
   const fwA = 1 + fat * 0.55   
 
-  const H = heightScale          
-  const BASE = BASE_HEIGHT      
 
-  // Skin material selection
-  const currentSkinMat = isIdeal ? skinMat.clone() : skinMat
-  const currentSkinDarkMat = isIdeal ? skinDarkMat.clone() : skinDarkMat
-  
-  if (isIdeal) {
-    currentSkinMat.color.set(0x4499aa)
-    currentSkinMat.emissive.set(0x113322)
-    currentSkinDarkMat.color.set(0x337788)
-    currentSkinDarkMat.emissive.set(0x0a221a)
-    currentSkinMat.transparent = true
-    currentSkinMat.opacity = 0.6
-    currentSkinDarkMat.transparent = true
-    currentSkinDarkMat.opacity = 0.6
-  }
+  const H = heightScale          
+  const BASE = BASE_HEIGHT
 
   // ── HEAD ─────────────────────────────────────────────────────────────────
   const headR = BASE * headProportion * fwH
@@ -241,6 +231,23 @@ function buildBody(fat = 0, heightScale = 1, ageMonths = 51, isIdeal = false) {
 }
 
 // ─── SHADOW BLOB ──────────────────────────────────────────────────────────────
+// ─── UTILS ──────────────────────────────────────────────────────────────────
+function cleanupObject(obj) {
+  if (!obj) return
+  obj.traverse(node => {
+    if (node.isMesh) {
+      if (node.geometry) node.geometry.dispose()
+      if (node.material) {
+        if (Array.isArray(node.material)) {
+          node.material.forEach(m => m.dispose())
+        } else {
+          node.material.dispose()
+        }
+      }
+    }
+  })
+}
+
 function makeShadow(fatScale) {
   const geo = new THREE.CircleGeometry(0.5 + fatScale * 0.3, 32)
   const scaleY = (0.15 + fatScale * 0.08) / (0.5 + fatScale * 0.3)
@@ -326,8 +333,7 @@ export default function Pediatric4DViewer({
 
     // Animation Loop
     let time = 0
-    const animate = () => {
-      requestAnimationFrame(animate)
+    renderer.setAnimationLoop(() => {
       time += 0.008
 
       if (patientRef.current) patientRef.current.position.y = Math.sin(time * 0.9) * 0.012
@@ -340,12 +346,11 @@ export default function Pediatric4DViewer({
       )
       camera.lookAt(0, 0.1, 0)
       renderer.render(scene, camera)
-    }
-    animate()
+    })
 
     // Cleanup
     return () => {
-      renderer.dispose()
+      renderer.setAnimationLoop(null)
       if (sceneRef.current) {
         sceneRef.current.traverse((object) => {
           if (object.geometry) object.geometry.dispose()
@@ -358,21 +363,34 @@ export default function Pediatric4DViewer({
           }
         })
       }
+      renderer.dispose()
       if (containerRef.current && renderer.domElement) {
         containerRef.current.removeChild(renderer.domElement)
       }
     }
-  }, [])
+  }, [sph]) // Re-run if sph changes to keep loop fresh
 
   // ─── REBUILD MODELS ─────────────────────────────────────────────────────────
   useEffect(() => {
     if (!sceneRef.current) return
 
-    // Clear existing
-    if (patientRef.current) sceneRef.current.remove(patientRef.current)
-    if (idealRef.current) sceneRef.current.remove(idealRef.current)
-    if (shadowPatientRef.current) sceneRef.current.remove(shadowPatientRef.current)
-    if (shadowIdealRef.current) sceneRef.current.remove(shadowIdealRef.current)
+    // Clear existing with proper disposal
+    if (patientRef.current) {
+      sceneRef.current.remove(patientRef.current)
+      cleanupObject(patientRef.current)
+    }
+    if (idealRef.current) {
+      sceneRef.current.remove(idealRef.current)
+      cleanupObject(idealRef.current)
+    }
+    if (shadowPatientRef.current) {
+      sceneRef.current.remove(shadowPatientRef.current)
+      cleanupObject(shadowPatientRef.current)
+    }
+    if (shadowIdealRef.current) {
+      sceneRef.current.remove(shadowIdealRef.current)
+      cleanupObject(shadowIdealRef.current)
+    }
 
     const fat = computeFat(currentWeight, idealWeight, currentHeight, idealHeight)
     
