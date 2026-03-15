@@ -14,7 +14,7 @@ const router = express.Router();
 const loginLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
   max: 5, // Limit each IP or email to 5 login requests per window
-  message: { error: 'Too many login attempts. Please try again after 15 minutes.' },
+  message: { error: 'Demasiados intentos de inicio de sesión. Por favor, intente de nuevo después de 15 minutos.' },
   keyGenerator: (req) => {
     // Trust proxy logic might be needed if behind a load balancer
     const ip = req.headers['x-forwarded-for'] || req.ip;
@@ -55,7 +55,27 @@ router.post('/login', loginLimiter, [
 
     const validPassword = await bcrypt.compare(password, user.password_hash);
     if (!validPassword) {
-      return res.status(401).json({ error: 'Invalid credentials' });
+      // Security Alert: Log failed attempt for admins
+      const failedEmail = email;
+      try {
+        const admins = await query("SELECT id FROM users WHERE role = 'admin'");
+        for (const admin of admins.rows) {
+          await query(
+            `INSERT INTO notifications (user_id, type, title, message, data)
+             VALUES ($1, $2, $3, $4, $5)`,
+            [
+              admin.id, 
+              'SECURITY_ALERT', 
+              'Intento de Acceso Fallido', 
+              `Se detectó un intento de inicio de sesión fallido para el correo: ${failedEmail}. Posible actividad sospechosa.`,
+              JSON.stringify({ attemptedEmail: failedEmail, timestamp: new Date() })
+            ]
+          );
+        }
+      } catch (logLimitErr) {
+        logger.error('Failed to log security notification:', logLimitErr);
+      }
+      return res.status(401).json({ error: 'Credenciales inválidas' });
     }
 
     // Update last login

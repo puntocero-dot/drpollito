@@ -36,14 +36,21 @@ router.get('/patient/:patientId', authenticateToken, async (req, res) => {
     if (!req.params.patientId || req.params.patientId === 'undefined') {
       return res.status(400).json({ error: 'Valid patient ID is required' });
     }
-    // Get patient info
-    const patientResult = await query(
-      'SELECT first_name, last_name, date_of_birth FROM patients WHERE id = $1',
-      [req.params.patientId]
-    );
+    // Get patient info and verify ownership
+    let sql = 'SELECT first_name, last_name, date_of_birth FROM patients WHERE id = $1';
+    const params = [req.params.patientId];
+
+    if (req.user.role === 'doctor') {
+      const docRes = await query('SELECT id FROM doctors WHERE user_id = $1', [req.user.id]);
+      if (docRes.rows.length === 0) return res.status(403).json({ error: 'Doctor not found' });
+      sql += ' AND doctor_id = $2';
+      params.push(docRes.rows[0].id);
+    }
+
+    const patientResult = await query(sql, params);
 
     if (patientResult.rows.length === 0) {
-      return res.status(404).json({ error: 'Patient not found' });
+      return res.status(404).json({ error: 'Patient not found or access denied' });
     }
 
     const patient = patientResult.rows[0];
@@ -218,6 +225,18 @@ router.get('/schedule/:ageMonths', authenticateToken, async (req, res) => {
 // Get patients with overdue vaccinations
 router.get('/overdue', authenticateToken, requireMedicalStaff, async (req, res) => {
   try {
+    let doctorFilter = '';
+    const params = [];
+    if (req.user.role === 'doctor') {
+      const docRes = await query('SELECT id FROM doctors WHERE user_id = $1', [req.user.id]);
+      if (docRes.rows.length > 0) {
+        doctorFilter = 'AND p.doctor_id = $1';
+        params.push(docRes.rows[0].id);
+      } else {
+        return res.json([]);
+      }
+    }
+
     const result = await query(`
       SELECT p.id, p.first_name, p.last_name, p.date_of_birth,
              EXTRACT(YEAR FROM AGE(p.date_of_birth)) * 12 + EXTRACT(MONTH FROM AGE(p.date_of_birth)) as age_months,
@@ -229,9 +248,10 @@ router.get('/overdue', authenticateToken, requireMedicalStaff, async (req, res) 
         AND v.is_active = true
         AND pv.id IS NULL
         AND (EXTRACT(YEAR FROM AGE(p.date_of_birth)) * 12 + EXTRACT(MONTH FROM AGE(p.date_of_birth))) >= ANY(v.recommended_ages_months)
+        ${doctorFilter}
       GROUP BY p.id
       ORDER BY p.last_name, p.first_name
-    `);
+    `, params);
 
     res.json(result.rows.map(p => ({
       id: p.id,

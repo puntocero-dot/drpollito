@@ -18,6 +18,10 @@ router.get('/doctor', authenticateToken, requireRole('doctor', 'admin'), async (
     const doctorId = doctorResult.rows[0]?.id;
     const clinicId = doctorResult.rows[0]?.clinic_id;
 
+    if (req.user.role === 'doctor' && !doctorId) {
+      return res.status(403).json({ error: 'Doctor record required' });
+    }
+
     // Today's appointments
     const todayAppointments = await query(
       `SELECT a.*, p.first_name, p.last_name, p.date_of_birth, p.allergies

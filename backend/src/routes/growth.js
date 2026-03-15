@@ -17,14 +17,21 @@ router.get('/patient/:patientId/history', authenticateToken, async (req, res) =>
   try {
     const { patientId } = req.params;
 
-    // Get patient info
-    const patientResult = await query(
-      'SELECT date_of_birth, gender FROM patients WHERE id = $1',
-      [patientId]
-    );
+    // Get patient info and verify ownership
+    let sql = 'SELECT date_of_birth, gender FROM patients WHERE id = $1';
+    const params = [patientId];
+
+    if (req.user.role === 'doctor') {
+      const docRes = await query('SELECT id FROM doctors WHERE user_id = $1', [req.user.id]);
+      if (docRes.rows.length === 0) return res.status(403).json({ error: 'Doctor not found' });
+      sql += ' AND doctor_id = $2';
+      params.push(docRes.rows[0].id);
+    }
+
+    const patientResult = await query(sql, params);
 
     if (patientResult.rows.length === 0) {
-      return res.status(404).json({ error: 'Patient not found' });
+      return res.status(404).json({ error: 'Patient not found or access denied' });
     }
 
     const patient = patientResult.rows[0];
@@ -81,14 +88,21 @@ router.get('/patient/:patientId/comparison', authenticateToken, async (req, res)
   try {
     const { patientId } = req.params;
 
-    // Get patient info
-    const patientResult = await query(
-      'SELECT date_of_birth, gender, first_name, last_name FROM patients WHERE id = $1',
-      [patientId]
-    );
+    // Get patient info and verify ownership
+    let sql = 'SELECT date_of_birth, gender, first_name, last_name FROM patients WHERE id = $1';
+    const params = [patientId];
+
+    if (req.user.role === 'doctor') {
+      const docRes = await query('SELECT id FROM doctors WHERE user_id = $1', [req.user.id]);
+      if (docRes.rows.length === 0) return res.status(403).json({ error: 'Doctor not found' });
+      sql += ' AND doctor_id = $2';
+      params.push(docRes.rows[0].id);
+    }
+
+    const patientResult = await query(sql, params);
 
     if (patientResult.rows.length === 0) {
-      return res.status(404).json({ error: 'Patient not found' });
+      return res.status(404).json({ error: 'Patient not found or access denied' });
     }
 
     const patient = patientResult.rows[0];
@@ -183,14 +197,21 @@ router.get('/patient/:patientId/comparison3d', authenticateToken, async (req, re
   try {
     const { patientId } = req.params;
 
-    // Get patient info
-    const patientResult = await query(
-      'SELECT date_of_birth, gender, first_name, last_name FROM patients WHERE id = $1',
-      [patientId]
-    );
+    // Get patient info and verify ownership
+    let sql = 'SELECT date_of_birth, gender, first_name, last_name FROM patients WHERE id = $1';
+    const params = [patientId];
+
+    if (req.user.role === 'doctor') {
+      const docRes = await query('SELECT id FROM doctors WHERE user_id = $1', [req.user.id]);
+      if (docRes.rows.length === 0) return res.status(403).json({ error: 'Doctor not found' });
+      sql += ' AND doctor_id = $2';
+      params.push(docRes.rows[0].id);
+    }
+
+    const patientResult = await query(sql, params);
 
     if (patientResult.rows.length === 0) {
-      return res.status(404).json({ error: 'Patient not found' });
+      return res.status(404).json({ error: 'Patient not found or access denied' });
     }
 
     const patient = patientResult.rows[0];

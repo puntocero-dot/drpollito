@@ -226,7 +226,7 @@ router.post('/', authenticateToken, async (req, res) => {
       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
       RETURNING *`,
       [safeClinicId, doctorId, patientId, safeParentId, scheduledDate, scheduledTime,
-        duration, type, reason, preVisitInstructions, notes, req.user.id]
+        duration, type, reason || '', preVisitInstructions || '', notes || '', req.user.id]
     );
 
     await logAudit(req.user.id, 'CREATE_APPOINTMENT', 'appointments', result.rows[0].id, null, { patientId, scheduledDate }, req);

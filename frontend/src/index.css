@@ -116,3 +116,29 @@
   transform: translateY(0);
   transition: opacity 400ms, transform 400ms;
 }
+
+/* Print styles for medical documents */
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  .print-container, .print-container * {
+    visibility: visible;
+  }
+  .print-container {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    background: white !important;
+    padding: 2cm;
+    color: black !important;
+    font-size: 12pt;
+  }
+  .no-print {
+    display: none !important;
+  }
+  @page {
+    margin: 1cm;
+  }
+}
