@@ -55,10 +55,34 @@ export default function DocumentModal({ patientId, initialPatient = null, doctor
         applyTemplate(def)
       } else {
         setSelectedTemplate(null)
-        // Set default title
-        const typeLabel = documentTypes.find(t => t.value === selectedType)?.label || 'Documento'
-        setTitle(typeLabel)
-        setContent('')
+        // Set default title and boilerplate content
+        const typeConfig = documentTypes.find(t => t.value === selectedType)
+        setTitle(typeConfig?.label || 'Documento')
+        
+        let boilerplate = ''
+        const pName = patient ? `${patient.firstName} ${patient.lastName}` : '{{paciente}}'
+        const date = new Date().toLocaleDateString('es-ES')
+        
+        switch (selectedType) {
+          case 'medical_certificate':
+            boilerplate = `Por la presente se hace constar que el paciente ${pName} asistió a consulta médica el día ${date}.\n\nSe extiende la presente para los usos que el interesado estime convenientes.`
+            break
+          case 'disability':
+            boilerplate = `Se extiende INCAPACIDAD MÉDICA para el paciente ${pName} por un período de ___ días, a partir del día ${date}.\n\nMotivo: _______________________\n\nSe recomienda reposo absoluto y seguir el tratamiento indicado.`
+            break
+          case 'referral':
+            boilerplate = `Se refiere al paciente ${pName} a la especialidad de ______________________.\n\nMotivo de referencia: _______________________\n\nResumen clínico: _______________________`
+            break
+          case 'lab_order':
+            boilerplate = `Se solicita realizar los siguientes exámenes de laboratorio para el paciente ${pName}:\n\n- Hemograma completo\n- \n- \n\nIndicaciones: Ayuno de 8 horas.`
+            break
+          case 'health_certificate':
+            boilerplate = `Certifico que después de haber examinado a ${pName}, se encuentra en buen estado de salud física y mental, no padeciendo de enfermedades infecto-contagiosas.\n\nFecha de examen: ${date}`
+            break
+          default:
+            boilerplate = ''
+        }
+        setContent(boilerplate)
       }
     } catch (error) {
       console.error('Error fetching templates:', error)

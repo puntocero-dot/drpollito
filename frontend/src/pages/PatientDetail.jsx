@@ -17,7 +17,7 @@ import DocumentModal from '../components/DocumentModal'
 export default function PatientDetail() {
   const { id } = useParams()
   const navigate = useNavigate()
-  const { isDoctor, isAdmin } = useAuth()
+  const { user, isDoctor, isAdmin } = useAuth()
   const { convertWeight, convertHeight, getUnitLabel } = usePreferences()
   const weightUnit = getUnitLabel('weight')
   const heightUnit = getUnitLabel('height')
