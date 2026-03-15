@@ -299,8 +299,16 @@ function NewAppointmentModal({ doctors, onClose, onSuccess }) {
   useEffect(() => {
     if (searchPatient.length >= 2) {
       searchPatients()
+    } else {
+      setPatients([])
     }
   }, [searchPatient])
+
+  useEffect(() => {
+    if (doctors.length === 1 && !formData.doctorId) {
+      setFormData(prev => ({ ...prev, doctorId: doctors[0].doctorId }))
+    }
+  }, [doctors])
 
   useEffect(() => {
     if (formData.doctorId && formData.scheduledDate) {
@@ -408,7 +416,7 @@ function NewAppointmentModal({ doctors, onClose, onSuccess }) {
                   className="input-field"
                 />
                 {patients.length > 0 && searchPatient.length >= 2 && (
-                  <div className="absolute z-10 w-full mt-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg max-h-48 overflow-y-auto">
+                  <div className="absolute z-50 w-full mt-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-xl max-h-60 overflow-y-auto">
                     {patients.map((patient) => (
                       <button
                         key={patient.id}
@@ -416,11 +424,12 @@ function NewAppointmentModal({ doctors, onClose, onSuccess }) {
                         onClick={() => {
                           setFormData({ ...formData, patientId: patient.id })
                           setSearchPatient('')
+                          setPatients([])
                         }}
-                        className="w-full px-4 py-2 text-left hover:bg-gray-50 dark:hover:bg-gray-700"
+                        className="w-full px-4 py-3 text-left hover:bg-blue-50 dark:hover:bg-blue-900/20 border-b border-gray-50 dark:border-gray-700 last:border-0 transition-colors"
                       >
-                        <p className="font-medium">{patient.firstName} {patient.lastName}</p>
-                        <p className="text-sm text-gray-500">{patient.medicalRecordNumber}</p>
+                        <p className="font-bold text-gray-900 dark:text-white">{patient.firstName} {patient.lastName}</p>
+                        <p className="text-xs text-gray-500">{patient.medicalRecordNumber}</p>
                       </button>
                     ))}
                   </div>
@@ -499,7 +508,11 @@ function NewAppointmentModal({ doctors, onClose, onSuccess }) {
             <button type="button" onClick={onClose} className="btn-secondary">
               Cancelar
             </button>
-            <button type="submit" disabled={loading || !formData.patientId} className="btn-primary">
+            <button 
+              type="submit" 
+              disabled={loading || !formData.patientId || !formData.doctorId || !formData.scheduledTime || !formData.scheduledDate} 
+              className="btn-primary"
+            >
               {loading ? 'Guardando...' : 'Crear Cita'}
             </button>
           </div>

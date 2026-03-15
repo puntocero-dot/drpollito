@@ -31,8 +31,9 @@ router.get('/', authenticateToken, requireMedicalStaff, async (req, res) => {
     const params = [];
     let paramIndex = 1;
 
-    // Filter by doctor_id if the user is a doctor
-    if (req.user.role === 'doctor') {
+    // Filter by doctor_id if the user is a doctor and NOT searching
+    // (Doctors should be able to search for any patient to schedule appointments)
+    if (req.user.role === 'doctor' && !search) {
       const docRes = await query('SELECT id FROM doctors WHERE user_id = $1', [req.user.id]);
       if (docRes.rows.length > 0) {
         sql += ` AND p.doctor_id = $${paramIndex++}`;
