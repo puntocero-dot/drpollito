@@ -11,6 +11,8 @@ import {
 import ConfirmDialog from '../components/ConfirmDialog'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts'
 import GrowthComparison3D from '../components/GrowthComparison3D'
+import PrescriptionModal from '../components/PrescriptionModal'
+import DocumentModal from '../components/DocumentModal'
 
 export default function PatientDetail() {
   const { id } = useParams()
@@ -43,6 +45,8 @@ export default function PatientDetail() {
   const [activePrescriptions, setActivePrescriptions] = useState([])
   const [notificationSettings, setNotificationSettings] = useState(null)
   const [showAlertsModal, setShowAlertsModal] = useState(false)
+  const [showPrescriptionModal, setShowPrescriptionModal] = useState(false)
+  const [showDocumentModal, setShowDocumentModal] = useState(false)
 
   useEffect(() => {
     if (!id || id === 'undefined') {
@@ -271,6 +275,14 @@ export default function PatientDetail() {
               title="Editar paciente"
             >
               <Edit className="h-5 w-5" />
+            </button>
+            <button
+              onClick={() => setShowDocumentModal(true)}
+              className="btn-secondary flex items-center gap-2"
+              title="Generar incapacidad, constancia, etc."
+            >
+              <FileText className="h-5 w-5 text-purple-600" />
+              Documento
             </button>
             <Link
               to={`/consultation/new?patientId=${id}`}
@@ -639,16 +651,23 @@ export default function PatientDetail() {
       {activeTab === 'medications' && (
         <div className="space-y-6">
           <div className="flex items-center justify-between">
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-              Medicación y Recordatorios
-            </h3>
-            <button
-              onClick={handleConfigureAlerts}
-              className="btn-secondary text-sm flex items-center gap-2"
-            >
-              <Settings className="h-4 w-4" />
-              Configurar Alertas
-            </button>
+            <h3 className="text-lg font-bold text-gray-900 dark:text-white">Active Prescriptions</h3>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setShowPrescriptionModal(true)}
+                className="btn-primary text-sm flex items-center gap-2"
+              >
+                <Plus className="h-4 w-4" />
+                Agregar Medicamento
+              </button>
+              <button
+                onClick={handleConfigureAlerts}
+                className="p-2 text-primary-600 hover:bg-primary-50 dark:hover:bg-primary-900/20 rounded-lg transition-colors border border-primary-200 dark:border-primary-800"
+                title="Configurar recordatorios"
+              >
+                <Bell className="h-5 w-5" />
+              </button>
+            </div>
           </div>
 
           {activePrescriptions.length > 0 ? (
@@ -1211,6 +1230,34 @@ export default function PatientDetail() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Prescription Modal */}
+      {showPrescriptionModal && (
+        <PrescriptionModal
+          patientId={id}
+          doctorId={user?.doctorId}
+          onClose={() => setShowPrescriptionModal(false)}
+          onSuccess={() => {
+            setShowPrescriptionModal(false)
+            fetchPrescriptions()
+          }}
+        />
+      )}
+
+      {/* Document Modal */}
+      {showDocumentModal && (
+        <DocumentModal
+          patientId={id}
+          initialPatient={patient}
+          doctorId={user?.doctorId}
+          onClose={() => setShowDocumentModal(false)}
+          onSuccess={() => {
+            setShowDocumentModal(false)
+            // Redirect or refresh documents if view integrated
+            alert('Documento generado exitosamente')
+          }}
+        />
       )}
 
     </div>

@@ -4,11 +4,17 @@ import {
   FileText, Search, Download, Eye, Send, Plus, X,
   Filter, Calendar, User
 } from 'lucide-react'
+import DocumentModal from '../components/DocumentModal'
+import { useAuth } from '../context/AuthContext'
+import { useNavigate } from 'react-router-dom'
 
 export default function Documents() {
   const [documents, setDocuments] = useState([])
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState({ type: '', search: '' })
+  const [showDocumentModal, setShowDocumentModal] = useState(false)
+  const { user, isDoctor, isAdmin } = useAuth()
+  const navigate = useNavigate()
 
   useEffect(() => {
     fetchDocuments()
@@ -60,6 +66,15 @@ export default function Documents() {
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Documentos</h1>
           <p className="text-gray-500 dark:text-gray-400">Recetas, constancias y certificados médicos</p>
         </div>
+        {(isDoctor || isAdmin) && (
+          <button
+            onClick={() => setShowDocumentModal(true)}
+            className="btn-primary flex items-center gap-2"
+          >
+            <Plus className="h-5 w-5" />
+            Nuevo Documento
+          </button>
+        )}
       </div>
 
       {/* Filters */}
@@ -196,6 +211,18 @@ export default function Documents() {
             Los documentos se generan automáticamente durante las consultas
           </p>
         </div>
+      )}
+
+      {showDocumentModal && (
+        <DocumentModal
+          doctorId={user?.doctorId}
+          onClose={() => setShowDocumentModal(false)}
+          onSuccess={() => {
+            setShowDocumentModal(false)
+            fetchDocuments()
+          }}
+          enablePatientSearch={true}
+        />
       )}
     </div>
   )
