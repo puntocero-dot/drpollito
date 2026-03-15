@@ -279,7 +279,7 @@ export default function Pediatric4DViewer({
   const shadowPatientRef = useRef(null)
   const shadowIdealRef = useRef(null)
   
-  const [sph, setSph] = useState({ theta: 0.05, phi: 1.35, r: 5.5 })
+  const sphRef = useRef({ theta: 0.05, phi: 1.35, r: 5.5 })
   const draggingRef = useRef(false)
   const pxRef = useRef({ x: 0, y: 0 })
 
@@ -339,10 +339,11 @@ export default function Pediatric4DViewer({
       if (patientRef.current) patientRef.current.position.y = Math.sin(time * 0.9) * 0.012
       if (idealRef.current) idealRef.current.position.y = Math.sin(time * 0.7 + 1) * 0.009
 
+      const s = sphRef.current
       camera.position.set(
-        sph.r * Math.sin(sph.phi) * Math.sin(sph.theta),
-        sph.r * Math.cos(sph.phi) + 0.2,
-        sph.r * Math.sin(sph.phi) * Math.cos(sph.theta)
+        s.r * Math.sin(s.phi) * Math.sin(s.theta),
+        s.r * Math.cos(s.phi) + 0.2,
+        s.r * Math.sin(s.phi) * Math.cos(s.theta)
       )
       camera.lookAt(0, 0.1, 0)
       renderer.render(scene, camera)
@@ -368,7 +369,7 @@ export default function Pediatric4DViewer({
         containerRef.current.removeChild(renderer.domElement)
       }
     }
-  }, [sph]) // Re-run if sph changes to keep loop fresh
+  }, []) // Initialize once
 
   // ─── REBUILD MODELS ─────────────────────────────────────────────────────────
   useEffect(() => {
@@ -427,19 +428,16 @@ export default function Pediatric4DViewer({
   // ─── INTERACTION HANDLERS ──────────────────────────────────────────────────
   const onMouseMove = useCallback((e) => {
     if (!draggingRef.current) return
-    setSph(prev => ({
-      ...prev,
-      theta: prev.theta - (e.clientX - pxRef.current.x) * 0.006,
-      phi: Math.max(0.5, Math.min(1.55, prev.phi + (e.clientY - pxRef.current.y) * 0.004))
-    }))
+    const s = sphRef.current
+    s.theta -= (e.clientX - pxRef.current.x) * 0.006
+    s.phi = Math.max(0.5, Math.min(1.55, s.phi + (e.clientY - pxRef.current.y) * 0.004))
     pxRef.current = { x: e.clientX, y: e.clientY }
   }, [])
 
   const onWheel = useCallback((e) => {
-    setSph(prev => ({
-      ...prev,
-      r: Math.max(2.5, Math.min(9, prev.r + e.deltaY * 0.008))
-    }))
+    const s = sphRef.current
+    s.r = Math.max(2.5, Math.min(9, s.r + e.deltaY * 0.008))
+    e.preventDefault()
   }, [])
 
   if (!currentWeight && !currentHeight) {
