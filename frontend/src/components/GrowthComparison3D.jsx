@@ -224,25 +224,30 @@ function BarColumn({ label, value, max, color, unit, isIdeal }) {
 
 // Advanced silhouette view with friendly child illustration
 function AdvancedSilhouetteView({ current, previous, ideal, healthStatus, transform3D, bmi, weightUnit, heightUnit }) {
-  const baseHeight = 160
-
-  // Calculate scales (based on raw metric values for proportional accuracy)
-  const idealScale = 1
-  const currentHeightScale = current.height / ideal.height
-  const currentWidthScale = transform3D?.scaleXZ || 1
-  const previousHeightScale = previous ? previous.height / ideal.height : null
-
-  // PIXEL CONVERSION MATH
-  // Unificado: pxPerCm basado en una altura fija de "escena" (ej. 180px para el muñeco más grande)
-  const SCENE_HEIGHT = 180
-  const maxCm = Math.max(current.height, ideal.height, previous?.height || 0)
-  const pxPerCm = SCENE_HEIGHT / maxCm
+  // ──────────────────────────────────────────────
+  // UNIFIED COORDINATE SYSTEM & ZOOM LOGIC
+  // ──────────────────────────────────────────────
+  const heights = [current.height, ideal.height, previous?.height].filter(Boolean)
+  const minCm = Math.min(...heights)
+  const maxCm = Math.max(...heights)
   
-  const currentHeightPx = current.height * pxPerCm
-  const previousHeightPx = previous ? (previous.height * pxPerCm) : null
-  const idealHeightPx = ideal.height * pxPerCm
+  // Define the "Window of Interest" (Zoom)
+  const VIEW_MARGIN = 15 // cm
+  const viewMinCm = Math.max(0, minCm - VIEW_MARGIN)
+  const viewMaxCm = maxCm + VIEW_MARGIN
+  const cmRange = viewMaxCm - viewMinCm
+  
+  const VIEWPORT_HEIGHT = 280 // px
+  const pxPerCm = VIEWPORT_HEIGHT / cmRange
 
-  // Body fat intensity affects width
+  const getPos = (cm) => (cm - viewMinCm) * pxPerCm
+  
+  const currentY = getPos(current.height)
+  const idealY = getPos(ideal.height)
+  const previousY = previous ? getPos(previous.height) : null
+  const floorY = getPos(0)
+
+  const currentWidthScale = transform3D?.scaleXZ || 1
   const bodyFatIntensity = transform3D?.bodyFatIntensity || 0
   const abdominalExpansion = transform3D?.abdominalExpansion || 0
 
@@ -259,32 +264,43 @@ function AdvancedSilhouetteView({ current, previous, ideal, healthStatus, transf
         </div>
       )}
 
-      <div className="flex justify-center items-end gap-12 min-h-[380px] relative py-8 px-12 pt-24">
+      <div className="flex justify-center items-end gap-12 h-[380px] relative px-12 pt-16 overflow-hidden bg-slate-50/50 dark:bg-gray-900/20 rounded-xl border border-slate-200 dark:border-gray-800">
         {/* Vertical Ruler */}
-        <div className="absolute left-6 bottom-32 top-8 w-12 border-r border-slate-200 dark:border-white/10 z-0">
-          {[...Array(Math.ceil(Math.max(current.height, ideal.height, previous?.height || 0) / 10) + 2)].map((_, i) => {
-            const cm = i * 10;
-            const bottom = cm * pxPerCm;
-            return (
-              <div key={cm} className="absolute left-0 w-full flex items-center" style={{ bottom: `${bottom}px` }}>
-                <div className="w-3 h-0.5 bg-slate-300 dark:bg-white/20"></div>
-                <span className="text-[10px] font-bold text-slate-400 dark:text-gray-500 ml-1.5">{cm}</span>
-              </div>
-            )
-          })}
+        <div className="absolute left-6 bottom-[100px] h-[280px] w-12 border-r border-slate-200 dark:border-white/10 z-0">
+          {(() => {
+            const ticks = [];
+            const step = 5;
+            const startTick = Math.floor(viewMinCm / step) * step;
+            const endTick = Math.ceil(viewMaxCm / step) * step;
+            
+            for (let cm = startTick; cm <= endTick; cm += step) {
+              const bottom = getPos(cm);
+              if (bottom >= 0 && bottom <= VIEWPORT_HEIGHT) {
+                ticks.push(
+                  <div key={cm} className="absolute left-0 w-full flex items-center" style={{ bottom: `${bottom}px` }}>
+                    <div className={`h-0.5 bg-slate-300 dark:bg-white/20 ${cm % 10 === 0 ? 'w-4' : 'w-2'}`}></div>
+                    {cm % 10 === 0 && (
+                      <span className="text-[10px] font-bold text-slate-400 dark:text-gray-500 ml-1.5">{cm}</span>
+                    )}
+                  </div>
+                );
+              }
+            }
+            return ticks;
+          })()}
         </div>
 
         {/* Horizontal Guide Lines */}
         {/* Ideal Line (Green) */}
-        <div className="absolute left-6 right-6 border-t-2 border-dashed border-green-500/20 z-0 transition-all duration-1000" style={{ bottom: `${idealHeightPx + 128}px` }}>
-           <div className="absolute -top-5 right-0 text-[10px] font-black text-green-500/60 uppercase tracking-tighter">Ideal OMS ({ideal.displayHeight}{heightUnit})</div>
+        <div className="absolute left-6 right-6 border-t-2 border-dashed border-green-500/30 z-0 transition-all duration-1000" style={{ bottom: `${idealY + 100}px` }}>
+           <div className="absolute -top-5 right-0 text-[10px] font-black text-green-500/70 uppercase tracking-tighter bg-white/50 dark:bg-gray-900/50 px-1 rounded">Ideal OMS ({ideal.displayHeight}{heightUnit})</div>
         </div>
         
         {/* Current Line (Gray) */}
-        <div className="absolute left-6 right-6 border-t-2 border-dashed border-slate-400/30 z-20 transition-all duration-1000" style={{ bottom: `${currentHeightPx + 128}px` }}>
-           <div className="absolute -top-6 left-12 flex flex-col items-start translate-y-1">
-             <span className="text-[10px] font-black text-slate-500 uppercase tracking-tighter">Actual ({current.displayHeight}{heightUnit})</span>
-             <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-slate-100 dark:bg-gray-800 text-slate-400 border border-slate-200 dark:border-slate-700">
+        <div className="absolute left-6 right-6 border-t-2 border-dashed border-slate-400/50 z-20 transition-all duration-1000" style={{ bottom: `${currentY + 100}px` }}>
+           <div className="absolute -top-8 left-12 flex flex-col items-start translate-y-1">
+             <span className="text-[10px] font-black text-slate-500 uppercase tracking-tighter bg-white/50 dark:bg-gray-900/50 px-1 rounded">Actual ({current.displayHeight}{heightUnit})</span>
+             <span className="text-[11px] font-black px-2 py-0.5 rounded bg-slate-700 text-white shadow-lg border border-slate-500 translate-y-[-2px]">
                Dif: {current.height > ideal.height ? '+' : ''}{(current.height - ideal.height).toFixed(1)} cm
              </span>
            </div>
@@ -292,78 +308,69 @@ function AdvancedSilhouetteView({ current, previous, ideal, healthStatus, transf
 
         {/* Previous Line (Blue) */}
         {previous && (
-          <div className="absolute left-6 right-6 border-t-2 border-dashed border-blue-400/20 z-0 transition-all duration-1000" style={{ bottom: `${previousHeightPx + 128}px` }}>
-             <div className="absolute -top-5 left-1/3 text-[9px] font-black text-blue-400/60 uppercase tracking-tighter">Anterior ({previous.displayHeight}{heightUnit})</div>
+          <div className="absolute left-6 right-6 border-t-2 border-dashed border-blue-400/30 z-0 transition-all duration-1000" style={{ bottom: `${previousY + 100}px` }}>
+             <div className="absolute -top-5 left-1/3 text-[9px] font-black text-blue-400/70 uppercase tracking-tighter bg-white/50 dark:bg-gray-900/50 px-1 rounded">Anterior ({previous.displayHeight}{heightUnit})</div>
           </div>
         )}
 
-        {/* Ideal Ghost (wireframe reference) */}
-        <div className="absolute inset-x-12 bottom-32 flex justify-center items-end pointer-events-none opacity-20 z-0">
-          <FriendlyChildSilhouette
-            height={idealHeightPx}
-            widthScale={1}
-            color="#22c55e"
-            isGhost={true}
-          />
-        </div>
+        {/* Silhouettes Container (With Zoom Offset) */}
+        <div className="absolute inset-x-0 bottom-[100px] flex justify-center items-end gap-12 px-12 pointer-events-none" style={{ height: VIEWPORT_HEIGHT }}>
+          {/* Ideal Ghost (wireframe reference) */}
+          <div className="absolute inset-x-12 flex justify-center items-end opacity-20 z-0" style={{ bottom: floorY }}>
+            <FriendlyChildSilhouette
+              targetHeightCm={ideal.height}
+              pxPerCm={pxPerCm}
+              widthScale={1}
+              color="#22c55e"
+              isGhost={true}
+            />
+          </div>
 
-        {/* Previous consultation (Blue silhouette) */}
-        {previous && previousHeightPx && (
-          <div className="flex flex-col items-center z-10 transition-all duration-500 hover:scale-105">
-            <div className="h-[200px] flex items-end">
+          {/* Previous consultation (Blue silhouette) */}
+          {previous && (
+            <div className="flex flex-col items-center z-10 relative" style={{ bottom: floorY }}>
               <FriendlyChildSilhouette
-                height={previousHeightPx}
+                targetHeightCm={previous.height}
+                pxPerCm={pxPerCm}
                 widthScale={1}
                 color="#3b82f6"
-                bodyFat={0}
               />
+              <div className="absolute top-[calc(100%+16px)] text-center bg-blue-50/90 dark:bg-blue-900/30 rounded-xl px-4 py-2 shadow-sm min-w-[120px] border border-blue-200 dark:border-blue-800 pointer-events-auto">
+                <p className="text-sm font-semibold text-blue-600 dark:text-blue-400">Anterior</p>
+                <p className="text-xs text-blue-500/80 mt-1">{previous.displayHeight}{heightUnit} / {previous.displayWeight}{weightUnit}</p>
+              </div>
             </div>
-            <div className="mt-4 text-center bg-blue-50/80 dark:bg-blue-900/20 rounded-xl px-4 py-2 shadow-sm min-h-[52px] border border-blue-100 dark:border-blue-800">
-              <p className="text-sm font-semibold text-blue-600 dark:text-blue-400">Anterior</p>
-              <p className="text-xs text-blue-500/80 mt-1">
-                {previous.displayHeight}{heightUnit} / {previous.displayWeight}{weightUnit}
-              </p>
-            </div>
-          </div>
-        )}
+          )}
 
-        {/* Current state (Gray silhouette) */}
-        <div className="flex flex-col items-center z-10 transition-all duration-500 hover:scale-105">
-          <div className="h-[200px] flex items-end">
+          {/* Current state (Gray silhouette) */}
+          <div className="flex flex-col items-center z-10 relative" style={{ bottom: floorY }}>
             <FriendlyChildSilhouette
-              height={currentHeightPx}
+              targetHeightCm={current.height}
+              pxPerCm={pxPerCm}
               widthScale={currentWidthScale}
               color="#94a3b8"
               bodyFat={bodyFatIntensity}
               abdominal={abdominalExpansion}
             />
+            <div className="absolute top-[calc(100%+16px)] text-center bg-white dark:bg-gray-800 rounded-xl px-4 py-2 shadow-md border-2 min-w-[120px] border-slate-300 dark:border-slate-600 pointer-events-auto">
+              <p className="text-sm font-bold text-slate-600 dark:text-slate-400">Actual</p>
+              <p className="text-xs mt-1 text-slate-500">{current.displayHeight}{heightUnit} / {current.displayWeight}{weightUnit}</p>
+            </div>
           </div>
-          <div className="mt-4 text-center bg-slate-50 dark:bg-gray-800/80 rounded-xl px-4 py-2 shadow-sm border-2 min-h-[52px] border-slate-300 dark:border-slate-600">
-            <p className="text-sm font-bold text-slate-600 dark:text-slate-400">
-              Actual
-            </p>
-            <p className="text-xs mt-1 text-slate-500">
-              {current.displayHeight}{heightUnit} / {current.displayWeight}{weightUnit}
-            </p>
-          </div>
-        </div>
 
-        {/* Ideal reference (Green silhouette) */}
-        <div className="flex flex-col items-center z-10 transition-all duration-500 hover:scale-105">
-          <div className="h-[200px] flex items-end">
+          {/* Ideal reference (Green silhouette) */}
+          <div className="flex flex-col items-center z-10 relative" style={{ bottom: floorY }}>
             <FriendlyChildSilhouette
-              height={idealHeightPx}
+              targetHeightCm={ideal.height}
+              pxPerCm={pxPerCm}
               widthScale={1}
               color="#22c55e"
-              bodyFat={0}
               isIdeal={true}
             />
-          </div>
-          <div className="mt-4 text-center bg-green-50 dark:bg-green-900/30 rounded-xl px-4 py-2 shadow-sm border-2 border-green-300 dark:border-green-700 min-h-[52px]">
-            <p className="text-sm font-bold text-green-600 dark:text-green-400">Ideal (OMS)</p>
-            <p className="text-xs text-green-500 mt-1">
-              {ideal.displayHeight}{heightUnit} / {ideal.displayWeight}{weightUnit}
-            </p>
+            <div className="absolute top-[calc(100%+16px)] text-center bg-green-50 dark:bg-green-900/40 rounded-xl px-4 py-2 shadow-sm border-2 min-w-[120px] border-green-300 dark:border-green-700 pointer-events-auto">
+              <p className="text-sm font-bold text-green-600 dark:text-green-400">Ideal (OMS)</p>
+              <p className="text-xs text-green-500 mt-1">{ideal.displayHeight}{heightUnit} / {ideal.displayWeight}{weightUnit}</p>
+            </div>
           </div>
         </div>
       </div>
@@ -405,7 +412,8 @@ function AdvancedSilhouetteView({ current, previous, ideal, healthStatus, transf
 
 // Medical Formal silhouette: clean, solid shapes with soft gradients
 function FriendlyChildSilhouette({
-  height = 160,
+  targetHeightCm = 160,
+  pxPerCm = 1,
   widthScale = 1,
   color = '#3b82f6',
   bodyFat = 0,
@@ -413,121 +421,102 @@ function FriendlyChildSilhouette({
   isGhost = false,
   isIdeal = false
 }) {
-  const width = 100 * widthScale
+  // SVG coordinates fixed at 100x160 for drawing
+  const SVG_BASE_HEIGHT = 160
+  const SVG_BASE_WIDTH = 100
 
-  // Proportions with safety defaults
-  const torsoWidth = Number(22 + (bodyFat * 12) + (abdominal * 6)) || 22
-  const headSize = Number(18 + (bodyFat * 3)) || 18
+  // The actual pixels the SVG will occupy in the container
+  const displayHeight = targetHeightCm * pxPerCm
+  const displayWidth = (SVG_BASE_WIDTH * (displayHeight / SVG_BASE_HEIGHT)) * widthScale
 
-  const strokeColor = isGhost ? '#cbd5e1' : (isIdeal ? '#22c55e' : color)
-  const fillColor = isGhost ? 'none' : (isIdeal ? '#22c55e' : color)
-  const opacity = isGhost ? 0.3 : (isIdeal ? 0.6 : 1)
+  // Drawing proportions (internal to the 160 units viewBox)
+  const headSize = 38 * (1 + bodyFat * 0.05)
+  const neckW = 14 + bodyFat * 3
+  const torsoW = 44 * widthScale * (1 + bodyFat * 0.35)
+  const torsoH = 50 
+  const armW = 14 + bodyFat * 4
+  const armH = 48
+  const legW = 18 + bodyFat * 5
+  const legH = 58
 
   return (
-    <svg
-      width={width}
-      height={height}
-      viewBox="0 0 100 160"
-      className="transition-all duration-1000 ease-in-out drop-shadow-sm"
-    >
-      <defs>
-        <linearGradient id={`formal-grad-${color.replace('#', '')}`} x1="0%" y1="0%" x2="0%" y2="100%">
-          <stop offset="0%" stopColor={color} stopOpacity="0.9" />
-          <stop offset="100%" stopColor={color} stopOpacity="0.7" />
-        </linearGradient>
-        <linearGradient id="ideal-grad" x1="0%" y1="0%" x2="0%" y2="100%">
-          <stop offset="0%" stopColor="#22c55e" stopOpacity="0.5" />
-          <stop offset="100%" stopColor="#22c55e" stopOpacity="0.3" />
-        </linearGradient>
-      </defs>
+    <div className="flex flex-col items-center select-none" style={{ height: displayHeight }}>
+      <svg 
+        width={displayWidth} 
+        height={displayHeight} 
+        viewBox={`0 0 ${SVG_BASE_WIDTH} ${SVG_BASE_HEIGHT}`} 
+        className="drop-shadow-sm transition-all duration-700"
+      >
+        <defs>
+          <linearGradient id={`grad-${color}`} x1="0%" y1="0%" x2="0%" y2="100%">
+            <stop offset="0%" style={{ stopColor: color, stopOpacity: isGhost ? 0.3 : 1 }} />
+            <stop offset="100%" style={{ stopColor: color, stopOpacity: isGhost ? 0.1 : 0.8 }} />
+          </linearGradient>
+        </defs>
 
-      <g opacity={opacity}>
-        {/* Head */}
-        <circle
-          cx="50" cy="22" r={headSize}
-          fill={isGhost ? 'none' : (isIdeal ? 'url(#ideal-grad)' : `url(#formal-grad-${color.replace('#', '')})`)}
-          stroke={strokeColor}
-          strokeWidth={isGhost ? 1.5 : 0}
-          strokeDasharray={isGhost ? "4 4" : "0"}
-        />
+        {/* Drawing at base 160px height, SVG attribute will scale it to displayHeight */}
+        <g transform="translate(50, 0)">
+          {/* Head */}
+          <circle 
+            cx="0" 
+            cy={headSize / 2} 
+            r={headSize / 2} 
+            fill={`url(#grad-${color})`}
+            stroke={isGhost ? color : 'none'}
+            strokeDasharray={isGhost ? "2,2" : "none"}
+          />
+          
+          {/* Eyes for current/ideal */}
+          {!isGhost && (
+            <g opacity="0.6">
+              <circle cx="-6" cy={headSize / 2 - 2} r="1.5" fill="white" />
+              <circle cx="6" cy={headSize / 2 - 2} r="1.5" fill="white" />
+            </g>
+          )}
 
-        {/* Neck */}
-        <path
-          d="M 46,38 Q 50,42 54,38"
-          fill="none"
-          stroke={strokeColor}
-          strokeWidth="2"
-          strokeLinecap="round"
-          opacity="0.5"
-        />
+          {/* Body structure starts at headSize */}
+          <g transform={`translate(0, ${headSize - 2})`}>
+            {/* Neck */}
+            <rect x={-neckW/2} y="0" width={neckW} height="6" fill={`url(#grad-${color})`} />
+            
+            {/* Shoulders & Torso */}
+            <rect 
+              x={-torsoW/2} 
+              y="4" 
+              width={torsoW} 
+              height={torsoH} 
+              rx={torsoW * 0.2} 
+              fill={`url(#grad-${color})`}
+            />
 
-        {/* Torso */}
-        <path
-          d={`M ${50 - torsoWidth},45 
-             Q ${50 - torsoWidth},42 50,42 
-             Q ${50 + torsoWidth},42 ${50 + torsoWidth},45 
-             L ${50 + torsoWidth + 2},90 
-             Q ${50 + torsoWidth + 2},100 50,100 
-             Q ${50 - torsoWidth - 2},100 ${50 - torsoWidth - 2},90 
-             Z`}
-          fill={isGhost ? 'none' : (isIdeal ? 'url(#ideal-grad)' : `url(#formal-grad-${color.replace('#', '')})`)}
-          stroke={strokeColor}
-          strokeWidth={isGhost ? 1.5 : 0}
-          strokeDasharray={isGhost ? "4 4" : "0"}
-        />
+            {/* Arms */}
+            <rect 
+              x={-torsoW/2 - armW + 2} 
+              y="6" 
+              width={armW} 
+              height={armH} 
+              rx={armW/2} 
+              fill={`url(#grad-${color})`} 
+              transform="rotate(10)"
+            />
+            <rect 
+              x={torsoW/2 - 2} 
+              y="6" 
+              width={armW} 
+              height={armH} 
+              rx={armW/2} 
+              fill={`url(#grad-${color})`} 
+              transform="rotate(-10)"
+            />
 
-        {/* Left Arm */}
-        <path
-          d={`M ${50 - torsoWidth},48 
-             Q ${50 - torsoWidth - 12},48 ${50 - torsoWidth - 10},75 
-             Q ${50 - torsoWidth - 8},85 ${50 - torsoWidth},82`}
-          fill="none"
-          stroke={strokeColor}
-          strokeWidth="8"
-          strokeLinecap="round"
-        />
-
-        {/* Right Arm */}
-        <path
-          d={`M ${50 + torsoWidth},48 
-             Q ${50 + torsoWidth + 12},48 ${50 + torsoWidth + 10},75 
-             Q ${50 + torsoWidth + 8},85 ${50 + torsoWidth},82`}
-          fill="none"
-          stroke={strokeColor}
-          strokeWidth="8"
-          strokeLinecap="round"
-        />
-
-        {/* Left Leg */}
-        <path
-          d={`M ${50 - 12},98 
-             L ${50 - 15},145 
-             Q ${50 - 15},152 ${50 - 25},152`}
-          fill="none"
-          stroke={strokeColor}
-          strokeWidth="10"
-          strokeLinecap="round"
-        />
-
-        {/* Right Leg */}
-        <path
-          d={`M ${50 + 12},98 
-             L ${50 + 15},145 
-             Q ${50 + 15},152 ${50 + 25},152`}
-          fill="none"
-          stroke={strokeColor}
-          strokeWidth="10"
-          strokeLinecap="round"
-        />
-
-        {/* Face details (simple medical icon style) */}
-        {!isGhost && (
-          <g opacity="0.6">
-            <circle cx="44" cy="20" r="1.5" fill="white" />
-            <circle cx="56" cy="20" r="1.5" fill="white" />
+            {/* Legs */}
+            <g transform={`translate(0, ${torsoH + 2})`}>
+              <rect x={-torsoW * 0.3} y="0" width={legW} height={legH} rx={legH * 0.1} fill={`url(#grad-${color})`} />
+              <rect x={torsoW * 0.3 - legW} y="0" width={legW} height={legH} rx={legH * 0.1} fill={`url(#grad-${color})`} />
+            </g>
           </g>
-        )}
-      </g>
-    </svg>
+        </g>
+      </svg>
+    </div>
   )
 }

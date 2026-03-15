@@ -210,13 +210,27 @@ export default function Pediatric4DViewer({
         }
     }, [handlePointerUp, handlePointerMove])
 
-    // Calibración Unificada
-    const SCENE_HEIGHT = 220
-    const maxCm = Math.max(currentHeight, idealHeight) + 10
-    const pxPerCm = SCENE_HEIGHT / maxCm
+    // ──────────────────────────────────────────────
+    // UNIFIED COORDINATE SYSTEM & ZOOM LOGIC
+    // ──────────────────────────────────────────────
+    const heights = [currentHeight, idealHeight].filter(Boolean)
+    const minCm = Math.min(...heights)
+    const maxCm = Math.max(...heights)
+    
+    const VIEW_MARGIN = 15 // cm
+    const viewMinCm = Math.max(0, minCm - VIEW_MARGIN)
+    const viewMaxCm = maxCm + VIEW_MARGIN
+    const cmRange = viewMaxCm - viewMinCm
+    
+    const VIEWPORT_HEIGHT = 280 // px
+    const pxPerCm = VIEWPORT_HEIGHT / cmRange
+
+    const getPos = (cm) => (cm - viewMinCm) * pxPerCm
     
     const currentHeightPx = currentHeight * pxPerCm
     const idealHeightPx = idealHeight * pxPerCm
+    const floorY = getPos(0)
+    
     const bodyFat = transform3D?.bodyFatIntensity || 0
     const widthScale = transform3D?.scaleXZ || 1
     
@@ -309,25 +323,34 @@ export default function Pediatric4DViewer({
                 {/* Horizontal Guide Lines Overlay (Fixed, not rotating) - We subtract rotation to keep it flat relative to viewer */}
                 <div className="absolute inset-0 pointer-events-none z-10" style={{ transform: 'translateZ(0px)', rotateY: `${-rotateY}deg` }}>
                     {/* Ruler */}
-                    <div className="absolute left-6 bottom-16 top-8 w-12 border-r border-slate-300/30 dark:border-white/10">
+                    <div className="absolute left-6 bottom-16 h-[280px] w-12 border-r border-slate-300/30 dark:border-white/10">
                         {(() => {
-                            return [...Array(Math.ceil(maxCm / 10) + 1)].map((_, i) => {
-                                const cm = i * 10;
-                                const bottom = cm * pxPerCm;
-                                return (
-                                    <div key={cm} className="absolute left-0 w-full flex items-center" style={{ bottom: `${bottom}px` }}>
-                                        <div className="w-3 h-0.5 bg-slate-400/40 dark:bg-white/20"></div>
-                                        <span className="text-[9px] font-bold text-slate-400 dark:text-gray-500 ml-1">{cm}</span>
-                                    </div>
-                                )
-                            });
+                            const ticks = [];
+                            const step = 5;
+                            const startTick = Math.floor(viewMinCm / step) * step;
+                            const endTick = Math.ceil(viewMaxCm / step) * step;
+
+                            for (let cm = startTick; cm <= endTick; cm += step) {
+                                const bottom = getPos(cm);
+                                if (bottom >= 0 && bottom <= VIEWPORT_HEIGHT) {
+                                    ticks.push(
+                                        <div key={cm} className="absolute left-0 w-full flex items-center" style={{ bottom: `${bottom}px` }}>
+                                            <div className={`h-0.5 bg-slate-400/40 dark:bg-white/20 ${cm % 10 === 0 ? 'w-3' : 'w-1.5'}`}></div>
+                                            {cm % 10 === 0 && (
+                                                <span className="text-[9px] font-bold text-slate-400 dark:text-gray-500 ml-1">{cm}</span>
+                                            )}
+                                        </div>
+                                    );
+                                }
+                            }
+                            return ticks;
                         })()}
                     </div>
 
                     {/* Lines crossing the current child */}
                     {(() => {
-                        const currentY = currentHeight * pxPerCm;
-                        const idealY = idealHeight * pxPerCm;
+                        const currentY = getPos(currentHeight);
+                        const idealY = getPos(idealHeight);
                         return (
                             <>
                                 {/* Ideal Line (Green) */}
@@ -349,7 +372,7 @@ export default function Pediatric4DViewer({
                 </div>
 
                 {/* Ghost ideal (behind, slightly offset) */}
-                <div style={{ transform: 'translateZ(-20px)', position: 'absolute', bottom: 64 }}>
+                <div style={{ transform: 'translateZ(-20px)', position: 'absolute', bottom: floorY + 64 }}>
                     <CSS3DBody
                         height={idealHeightPx}
                         widthScale={1}
@@ -363,7 +386,7 @@ export default function Pediatric4DViewer({
                 </div>
 
                 {/* Patient model (front) */}
-                <div style={{ transform: 'translateZ(20px)', position: 'relative', zIndex: 2 }}>
+                <div style={{ transform: 'translateZ(20px)', position: 'relative', zIndex: 2, bottom: floorY }}>
                     <CSS3DBody
                         height={currentHeightPx}
                         widthScale={widthScale}
