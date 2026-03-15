@@ -287,7 +287,7 @@ export default function Pediatric4DViewer({
     renderer.setSize(W, H)
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
     renderer.shadowMap.enabled = true
-    renderer.shadowMap.type = THREE.PCFSoftShadowMap
+    renderer.shadowMap.type = THREE.PCFShadowMap
     renderer.toneMapping = THREE.ACESFilmicToneMapping
     renderer.toneMappingExposure = 1.1
     containerRef.current.appendChild(renderer.domElement)
@@ -346,7 +346,21 @@ export default function Pediatric4DViewer({
     // Cleanup
     return () => {
       renderer.dispose()
-      if (containerRef.current) containerRef.current.removeChild(renderer.domElement)
+      if (sceneRef.current) {
+        sceneRef.current.traverse((object) => {
+          if (object.geometry) object.geometry.dispose()
+          if (object.material) {
+            if (Array.isArray(object.material)) {
+              object.material.forEach(material => material.dispose())
+            } else {
+              object.material.dispose()
+            }
+          }
+        })
+      }
+      if (containerRef.current && renderer.domElement) {
+        containerRef.current.removeChild(renderer.domElement)
+      }
     }
   }, [])
 
