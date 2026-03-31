@@ -228,14 +228,15 @@ router.put('/:id', authenticateToken, requireAdmin, [
   body('firstName').optional().trim(),
   body('lastName').optional().trim(),
   body('phone').optional(),
-  body('status').optional().isIn(['active', 'inactive', 'suspended'])
+  body('status').optional().isIn(['active', 'inactive', 'suspended']),
+  body('password').optional().isLength({ min: 6 })
 ], async (req, res) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
     return res.status(400).json({ errors: errors.array() });
   }
 
-  const { firstName, lastName, phone, status, dui } = req.body;
+  const { firstName, lastName, phone, status, dui, password } = req.body;
 
   try {
     const oldResult = await query('SELECT * FROM users WHERE id = $1', [req.params.id]);
@@ -243,20 +244,31 @@ router.put('/:id', authenticateToken, requireAdmin, [
       return res.status(404).json({ error: 'User not found' });
     }
 
-    const result = await query(
-      `UPDATE users SET 
+    let queryStr = `UPDATE users SET 
         first_name = COALESCE($1, first_name),
         last_name = COALESCE($2, last_name),
         phone = COALESCE($3, phone),
         status = COALESCE($4, status),
         dui = COALESCE($5, dui),
-        updated_at = CURRENT_TIMESTAMP
-       WHERE id = $6
-       RETURNING id, email, role, status, first_name, last_name, phone`,
-      [firstName, lastName, phone, status, dui, req.params.id]
-    );
+        updated_at = CURRENT_TIMESTAMP`;
+    
+    const params = [firstName, lastName, phone, status, dui];
+    let paramIndex = 6;
 
-    await logAudit(req.user.id, 'UPDATE_USER', 'users', req.params.id, oldResult.rows[0], result.rows[0], req);
+    if (password) {
+      const bcrypt = require('bcryptjs');
+      const passwordHash = await bcrypt.hash(password, 10);
+      queryStr += `, password_hash = $${paramIndex}`;
+      params.push(passwordHash);
+      paramIndex++;
+    }
+
+    queryStr += ` WHERE id = $${paramIndex} RETURNING id, email, role, status, first_name, last_name, phone`;
+    params.push(req.params.id);
+
+    const result = await query(queryStr, params);
+
+    await logAudit(req.user.id, 'UPDATE_USER', 'users', req.params.id, oldResult.rows[0], { ...result.rows[0], passwordChanged: !!password }, req);
 
     const u = result.rows[0];
     res.json({

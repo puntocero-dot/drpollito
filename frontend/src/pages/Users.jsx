@@ -267,10 +267,15 @@ function UserModal({ user, onClose, onSuccess }) {
     setError('')
 
     try {
+      const submitData = { ...formData };
+      if (user && !submitData.password) {
+        delete submitData.password;
+      }
+
       if (user) {
-        await api.put(`/users/${user.id}`, formData)
+        await api.put(`/users/${user.id}`, submitData)
       } else {
-        await api.post('/users', formData)
+        await api.post('/users', submitData)
       }
       onSuccess()
     } catch (err) {
@@ -340,21 +345,19 @@ function UserModal({ user, onClose, onSuccess }) {
             />
           </div>
 
-          {!user && (
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Contraseña *
-              </label>
-              <input
-                type="password"
-                required={!user}
-                value={formData.password}
-                onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                className="input-field"
-                minLength={6}
-              />
-            </div>
-          )}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              {user ? 'Nueva Contraseña (opcional)' : 'Contraseña *'}
+            </label>
+            <input
+              type="password"
+              required={!user}
+              value={formData.password || ''}
+              onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+              className="input-field"
+              minLength={6}
+            />
+          </div>
 
           <div className="grid grid-cols-2 gap-4">
             <div>
