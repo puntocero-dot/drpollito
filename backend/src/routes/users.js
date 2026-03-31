@@ -181,7 +181,7 @@ router.post('/', authenticateToken, requireAdmin, [
       `INSERT INTO users (email, password_hash, role, first_name, last_name, phone, dui)
        VALUES ($1, $2, $3, $4, $5, $6, $7)
        RETURNING id, email, role, first_name, last_name`,
-      [email, passwordHash, role, firstName, lastName, phone, dui]
+      [email, passwordHash, role, firstName, lastName, phone, dui ? dui.trim() : null]
     );
 
     const newUser = result.rows[0];
@@ -257,7 +257,8 @@ router.put('/:id', authenticateToken, requireAdmin, [
         dui = COALESCE($5, dui),
         updated_at = CURRENT_TIMESTAMP`;
     
-    const params = [firstName, lastName, phone, status, dui];
+    const finalDui = (dui && dui.trim() !== '') ? dui.trim() : null;
+    const params = [firstName, lastName, phone, status, finalDui];
     let paramIndex = 6;
 
     if (password) {
@@ -286,6 +287,9 @@ router.put('/:id', authenticateToken, requireAdmin, [
     });
   } catch (error) {
     logger.error('Update user error:', error);
+    if (error.code === '23505' && error.constraint === 'users_dui_key') {
+      return res.status(400).json({ error: 'El número de DUI ya está registrado en otro usuario' });
+    }
     res.status(500).json({ error: 'Failed to update user', details: error.message });
   }
 });
