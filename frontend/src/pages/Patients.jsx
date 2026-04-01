@@ -2,7 +2,8 @@ import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import api from '../services/api'
 import {
-  AlertTriangle, Phone, X, Filter
+  Search, Plus, Filter, ChevronRight, User, Calendar,
+  AlertTriangle, Phone, X
 } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 
