@@ -22,6 +22,7 @@ const growthRoutes = require('./routes/growth');
 const preferencesRoutes = require('./routes/preferences');
 const scheduleRoutes = require('./routes/schedule');
 const labExamsRoutes = require('./routes/labExams');
+const referralsRoutes = require('./routes/referrals');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -102,6 +103,7 @@ app.use('/api/growth', growthRoutes);
 app.use('/api/preferences', preferencesRoutes);
 app.use('/api/schedule', scheduleRoutes);
 app.use('/api/lab-exams', labExamsRoutes);
+app.use('/api/referrals', referralsRoutes);
 
 // 404 handler
 app.use((req, res) => {

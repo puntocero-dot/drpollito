@@ -34,6 +34,9 @@ export default function Layout() {
     { name: 'Citas', href: '/appointments', icon: Calendar },
     { name: 'Vacunación', href: '/vaccinations', icon: Syringe },
     { name: 'Documentos', href: '/documents', icon: FileText },
+    ...(isAdmin || isDoctor ? [
+      { name: 'Referencias', href: '/referrals', icon: Stethoscope },
+    ] : []),
     ...(isAdmin ? [
       { name: 'Usuarios', href: '/users', icon: UserCircle },
       { name: 'Clínicas', href: '/clinics', icon: Building2 },

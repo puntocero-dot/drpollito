@@ -17,6 +17,7 @@ const Documents = lazy(() => import('./pages/Documents'));
 const Users = lazy(() => import('./pages/Users'));
 const Clinics = lazy(() => import('./pages/Clinics'));
 const Settings = lazy(() => import('./pages/Settings'));
+const Referrals = lazy(() => import('./pages/Referrals'));
 
 // Centralized Loader Component for Suspense Fallbacks
 const PageLoader = () => (
@@ -95,6 +96,11 @@ function App() {
             <Route path="/clinics" element={
               <ProtectedRoute roles={['admin']}>
                 <Suspense fallback={<PageLoader />}><Clinics /></Suspense>
+              </ProtectedRoute>
+            } />
+            <Route path="/referrals" element={
+              <ProtectedRoute roles={['admin', 'doctor']}>
+                <Suspense fallback={<PageLoader />}><Referrals /></Suspense>
               </ProtectedRoute>
             } />
             <Route path="/settings" element={<Suspense fallback={<PageLoader />}><Settings /></Suspense>} />

@@ -161,6 +161,11 @@ export default function Users() {
                     {user.specialty && (
                       <p className="text-xs text-gray-500 mt-1">{user.specialty}</p>
                     )}
+                    {user.role === 'secretary' && user.secretaryScope && (
+                      <p className="text-xs text-gray-500 mt-1">
+                        {user.secretaryScope === 'personal' ? 'Personal' : 'De clínica'}
+                      </p>
+                    )}
                   </td>
                   <td className="px-4 py-3">
                     {user.phone && (
@@ -234,6 +239,7 @@ function UserModal({ user, onClose, onSuccess }) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [clinics, setClinics] = useState([])
+  const [doctors, setDoctors] = useState([])
   const [formData, setFormData] = useState({
     email: user?.email || '',
     password: '',
@@ -245,11 +251,14 @@ function UserModal({ user, onClose, onSuccess }) {
     status: user?.status || 'active',
     clinicId: '',
     medicalLicense: '',
-    specialty: 'Pediatría'
+    specialty: 'Pediatría',
+    scope: user?.secretaryScope || 'clinic',
+    assignedDoctorId: user?.assignedDoctorId || ''
   })
 
   useEffect(() => {
     fetchClinics()
+    fetchDoctors()
   }, [])
 
   const fetchClinics = async () => {
@@ -258,6 +267,15 @@ function UserModal({ user, onClose, onSuccess }) {
       setClinics(response.data)
     } catch (error) {
       console.error('Error fetching clinics:', error)
+    }
+  }
+
+  const fetchDoctors = async () => {
+    try {
+      const response = await api.get('/users/role/doctors')
+      setDoctors(response.data)
+    } catch (error) {
+      console.error('Error fetching doctors:', error)
     }
   }
 
@@ -461,6 +479,61 @@ function UserModal({ user, onClose, onSuccess }) {
                   />
                 </div>
               </div>
+            </>
+          )}
+
+          {formData.role === 'secretary' && (
+            <>
+              {!user && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    Clínica
+                  </label>
+                  <select
+                    value={formData.clinicId}
+                    onChange={(e) => setFormData({ ...formData, clinicId: e.target.value })}
+                    className="input-field"
+                  >
+                    <option value="">Seleccionar clínica</option>
+                    {clinics.map((clinic) => (
+                      <option key={clinic.id} value={clinic.id}>{clinic.name}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Tipo de secretaria
+                </label>
+                <select
+                  value={formData.scope}
+                  onChange={(e) => setFormData({ ...formData, scope: e.target.value, assignedDoctorId: '' })}
+                  className="input-field"
+                >
+                  <option value="clinic">De clínica (gestiona todos los doctores)</option>
+                  <option value="personal">Personal (asignada a un doctor)</option>
+                </select>
+              </div>
+              {formData.scope === 'personal' && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    Doctor asignado *
+                  </label>
+                  <select
+                    value={formData.assignedDoctorId}
+                    onChange={(e) => setFormData({ ...formData, assignedDoctorId: e.target.value })}
+                    className="input-field"
+                    required
+                  >
+                    <option value="">Seleccionar doctor...</option>
+                    {doctors.map((d) => (
+                      <option key={d.doctorId} value={d.doctorId}>
+                        Dr. {d.firstName} {d.lastName}{d.specialty ? ` — ${d.specialty}` : ''}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
             </>
           )}
 

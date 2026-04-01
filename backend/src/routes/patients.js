@@ -31,16 +31,17 @@ router.get('/', authenticateToken, requireMedicalStaff, async (req, res) => {
     const params = [];
     let paramIndex = 1;
 
-    // Filter by doctor_id if the user is a doctor
+    // Filter by doctor_id if the user is a doctor (own patients + active referrals)
     if (req.user.role === 'doctor') {
       const docRes = await query('SELECT id FROM doctors WHERE user_id = $1', [req.user.id]);
-      if (docRes.rows.length > 0) {
-        sql += ` AND p.doctor_id = $${paramIndex++}`;
-        params.push(docRes.rows[0].id);
-      } else {
-        // If doctor record not found, return empty list instead of full list
-        return res.json([]);
-      }
+      if (docRes.rows.length === 0) return res.json([]);
+      const doctorId = docRes.rows[0].id;
+      sql += ` AND (p.doctor_id = $${paramIndex} OR EXISTS (
+        SELECT 1 FROM referrals r
+        WHERE r.patient_id = p.id AND r.to_doctor_id = $${paramIndex} AND r.status = 'active'
+      ))`;
+      params.push(doctorId);
+      paramIndex++;
     }
 
     if (clinicId) {
@@ -132,6 +133,26 @@ router.get('/:id', authenticateToken, async (req, res) => {
         [req.params.id, req.user.id]
       );
       if (parentAccess.rows.length === 0) {
+        return res.status(403).json({ error: 'Access denied' });
+      }
+    }
+
+    // Doctors can only access their own patients or patients referred to them
+    if (req.user.role === 'doctor') {
+      const docRes = await query('SELECT id FROM doctors WHERE user_id = $1', [req.user.id]);
+      if (docRes.rows.length === 0) return res.status(403).json({ error: 'Access denied' });
+      const doctorId = docRes.rows[0].id;
+      const accessCheck = await query(
+        `SELECT 1 FROM patients p
+         WHERE p.id = $1 AND (
+           p.doctor_id = $2 OR EXISTS (
+             SELECT 1 FROM referrals r
+             WHERE r.patient_id = p.id AND r.to_doctor_id = $2 AND r.status = 'active'
+           )
+         )`,
+        [req.params.id, doctorId]
+      );
+      if (accessCheck.rows.length === 0) {
         return res.status(403).json({ error: 'Access denied' });
       }
     }

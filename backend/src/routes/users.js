@@ -14,12 +14,14 @@ router.get('/', authenticateToken, requireAdmin, async (req, res) => {
     const { role, status, search } = req.query;
 
     let sql = `
-      SELECT u.id, u.email, u.role, u.status, u.first_name, u.last_name, 
+      SELECT u.id, u.email, u.role, u.status, u.first_name, u.last_name,
              u.phone, u.dui, u.created_at, u.last_login,
-             d.medical_license, d.specialty, c.name as clinic_name
+             d.medical_license, d.specialty, c.name as clinic_name,
+             s.scope as secretary_scope, s.assigned_doctor_id
       FROM users u
       LEFT JOIN doctors d ON u.id = d.user_id
       LEFT JOIN clinics c ON d.clinic_id = c.id
+      LEFT JOIN secretaries s ON u.id = s.user_id
       WHERE 1=1
     `;
     const params = [];
@@ -58,7 +60,9 @@ router.get('/', authenticateToken, requireAdmin, async (req, res) => {
       lastLogin: u.last_login,
       medicalLicense: u.medical_license,
       specialty: u.specialty,
-      clinicName: u.clinic_name
+      clinicName: u.clinic_name,
+      secretaryScope: u.secretary_scope || null,
+      assignedDoctorId: u.assigned_doctor_id || null
     })));
   } catch (error) {
     logger.error('Get users error:', error);
@@ -77,13 +81,14 @@ router.get('/role/doctors', authenticateToken, requireMedicalStaff, async (req, 
        LEFT JOIN clinics c ON d.clinic_id = c.id
        WHERE u.status = 'active'`;
        
+    const params2 = [];
     if (req.user.role === 'secretary') {
-      sql += ` AND d.clinic_id IN (SELECT clinic_id FROM secretary_clinics WHERE secretary_id = (SELECT id FROM secretaries WHERE user_id = ${req.user.id}))`;
+      sql += ` AND d.clinic_id IN (SELECT clinic_id FROM secretary_clinics WHERE secretary_id = (SELECT id FROM secretaries WHERE user_id = $1))`;
+      params2.push(req.user.id);
     }
-       
-    sql += ` ORDER BY u.last_name, u.first_name`;
 
-    const result = await query(sql);
+    sql += ` ORDER BY u.last_name, u.first_name`;
+    const result = await query(sql, params2);
 
     res.json(result.rows.map(d => ({
       id: d.id,
@@ -108,10 +113,12 @@ router.get('/:id', authenticateToken, requireMedicalStaff, async (req, res) => {
   try {
     const result = await query(
       `SELECT u.*, d.id as doctor_id, d.medical_license, d.specialty, d.clinic_id,
-              c.name as clinic_name
+              c.name as clinic_name,
+              s.scope as secretary_scope, s.assigned_doctor_id
        FROM users u
        LEFT JOIN doctors d ON u.id = d.user_id
        LEFT JOIN clinics c ON d.clinic_id = c.id
+       LEFT JOIN secretaries s ON u.id = s.user_id
        WHERE u.id = $1`,
       [req.params.id]
     );
@@ -136,7 +143,9 @@ router.get('/:id', authenticateToken, requireMedicalStaff, async (req, res) => {
       medicalLicense: u.medical_license,
       specialty: u.specialty,
       clinicId: u.clinic_id,
-      clinicName: u.clinic_name
+      clinicName: u.clinic_name,
+      secretaryScope: u.secretary_scope || null,
+      assignedDoctorId: u.assigned_doctor_id || null
     });
   } catch (error) {
     logger.error('Get user error:', error);
@@ -159,7 +168,7 @@ router.post('/', authenticateToken, requireAdmin, [
     });
   }
 
-  const { email, password, firstName, lastName, role, phone, dui, clinicId, medicalLicense, specialty } = req.body;
+  const { email, password, firstName, lastName, role, phone, dui, clinicId, medicalLicense, specialty, scope, assignedDoctorId } = req.body;
 
   try {
     const existing = await query('SELECT id FROM users WHERE email = $1', [email]);
@@ -196,7 +205,12 @@ router.post('/', authenticateToken, requireAdmin, [
     } else if (role === 'parent') {
       await query('INSERT INTO parents (user_id) VALUES ($1)', [newUser.id]);
     } else if (role === 'secretary') {
-      const secResult = await query('INSERT INTO secretaries (user_id) VALUES ($1) RETURNING id', [newUser.id]);
+      const validScope = scope === 'personal' ? 'personal' : 'clinic';
+      const secResult = await query(
+        `INSERT INTO secretaries (user_id, scope, assigned_doctor_id)
+         VALUES ($1, $2, $3) RETURNING id`,
+        [newUser.id, validScope, (validScope === 'personal' && assignedDoctorId) ? assignedDoctorId : null]
+      );
       if (clinicId) {
         await query('INSERT INTO secretary_clinics (secretary_id, clinic_id) VALUES ($1, $2)',
           [secResult.rows[0].id, clinicId]);
@@ -241,7 +255,7 @@ router.put('/:id', authenticateToken, requireAdmin, [
     return res.status(400).json({ errors: errors.array() });
   }
 
-  const { firstName, lastName, phone, status, dui, password } = req.body;
+  const { firstName, lastName, phone, status, dui, password, scope, assignedDoctorId } = req.body;
 
   try {
     const oldResult = await query('SELECT * FROM users WHERE id = $1', [req.params.id]);
@@ -272,6 +286,18 @@ router.put('/:id', authenticateToken, requireAdmin, [
     params.push(req.params.id);
 
     const result = await query(queryStr, params);
+
+    // Update secretary-specific fields if applicable
+    if (oldResult.rows[0].role === 'secretary' && (scope !== undefined || assignedDoctorId !== undefined)) {
+      const validScope = scope === 'personal' ? 'personal' : 'clinic';
+      await query(
+        `UPDATE secretaries SET
+           scope = $1,
+           assigned_doctor_id = $2
+         WHERE user_id = $3`,
+        [validScope, (validScope === 'personal' && assignedDoctorId) ? assignedDoctorId : null, req.params.id]
+      );
+    }
 
     await logAudit(req.user.id, 'UPDATE_USER', 'users', req.params.id, oldResult.rows[0], { ...result.rows[0], passwordChanged: !!password }, req);
 

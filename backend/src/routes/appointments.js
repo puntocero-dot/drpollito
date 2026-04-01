@@ -34,6 +34,17 @@ router.get('/', authenticateToken, async (req, res) => {
         sql += ` AND a.doctor_id = $${paramIndex++}`;
         params.push(doctorResult.rows[0].id);
       }
+    } else if (req.user.role === 'secretary') {
+      // Personal secretary: only sees their assigned doctor's appointments
+      const secResult = await query(
+        'SELECT scope, assigned_doctor_id FROM secretaries WHERE user_id = $1',
+        [req.user.id]
+      );
+      if (secResult.rows.length > 0 && secResult.rows[0].scope === 'personal' && secResult.rows[0].assigned_doctor_id) {
+        sql += ` AND a.doctor_id = $${paramIndex++}`;
+        params.push(secResult.rows[0].assigned_doctor_id);
+      }
+      // scope='clinic' => no extra filter, sees all clinic appointments
     } else if (req.user.role === 'parent') {
       const parentResult = await query('SELECT id FROM parents WHERE user_id = $1', [req.user.id]);
       if (parentResult.rows.length > 0) {
@@ -392,6 +403,15 @@ router.get('/today/list', authenticateToken, async (req, res) => {
       if (doctorResult.rows.length > 0) {
         doctorFilter = 'AND a.doctor_id = $1';
         params.push(doctorResult.rows[0].id);
+      }
+    } else if (req.user.role === 'secretary') {
+      const secResult = await query(
+        'SELECT scope, assigned_doctor_id FROM secretaries WHERE user_id = $1',
+        [req.user.id]
+      );
+      if (secResult.rows.length > 0 && secResult.rows[0].scope === 'personal' && secResult.rows[0].assigned_doctor_id) {
+        doctorFilter = 'AND a.doctor_id = $1';
+        params.push(secResult.rows[0].assigned_doctor_id);
       }
     }
 

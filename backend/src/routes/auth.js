@@ -205,10 +205,12 @@ router.get('/me', authenticateToken, async (req, res) => {
   try {
     const result = await query(
       `SELECT u.*, d.id as doctor_id, d.clinic_id, d.medical_license, d.specialty,
-              c.name as clinic_name
+              c.name as clinic_name,
+              s.scope as secretary_scope, s.assigned_doctor_id
        FROM users u
        LEFT JOIN doctors d ON u.id = d.user_id
        LEFT JOIN clinics c ON d.clinic_id = c.id
+       LEFT JOIN secretaries s ON u.id = s.user_id
        WHERE u.id = $1`,
       [req.user.id]
     );
@@ -231,7 +233,9 @@ router.get('/me', authenticateToken, async (req, res) => {
       clinicId: user.clinic_id,
       clinicName: user.clinic_name,
       medicalLicense: user.medical_license,
-      specialty: user.specialty
+      specialty: user.specialty,
+      secretaryScope: user.secretary_scope || null,
+      assignedDoctorId: user.assigned_doctor_id || null
     });
   } catch (error) {
     logger.error('Get current user error:', error);
