@@ -46,6 +46,9 @@ export default function Layout() {
     ] : []),
     { name: 'Configuración', href: '/settings', icon: Settings },
   ].filter(item => {
+    // If we're Admin, some items (Clinics, Users) should ALWAYS be visible
+    if (isAdmin && ['clinics', 'users'].includes(item.module)) return true;
+
     // If we're Admin and no project is selected, show everything
     if (isAdmin && !activeProject) return true;
     
@@ -54,7 +57,7 @@ export default function Layout() {
       return activeProject.settings.enabledModules.includes(item.module);
     }
     
-    // Always show items without a specific module (like Settings)
+    // Always show items without a specific module (like Settings or items exempt above)
     return true;
   })
 
