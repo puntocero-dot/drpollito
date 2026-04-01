@@ -79,7 +79,7 @@ router.get('/role/doctors', authenticateToken, requireMedicalStaff, async (req, 
        FROM users u
        JOIN doctors d ON u.id = d.user_id
        LEFT JOIN clinics c ON d.clinic_id = c.id
-       WHERE u.status = 'active'`;
+       WHERE u.status = 'active' AND u.role = 'doctor'`;
        
     const params2 = [];
     if (req.user.role === 'secretary') {
