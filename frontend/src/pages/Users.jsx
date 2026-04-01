@@ -35,7 +35,8 @@ export default function Users() {
   const handleDelete = async () => {
     if (!deleteConfirm.user) return
     try {
-      await api.delete(`/users/${deleteConfirm.user.id}`)
+      const resp = await api.delete(`/users/${deleteConfirm.user.id}`)
+      alert(resp.data.message || 'Usuario procesado correctamente')
       fetchUsers()
     } catch (error) {
       console.error('Error deleting user:', error)
@@ -240,6 +241,7 @@ function UserModal({ user, onClose, onSuccess }) {
   const [error, setError] = useState('')
   const [clinics, setClinics] = useState([])
   const [doctors, setDoctors] = useState([])
+  const [specialtiesList, setSpecialtiesList] = useState([])
   const [formData, setFormData] = useState({
     email: user?.email || '',
     password: '',
@@ -259,7 +261,17 @@ function UserModal({ user, onClose, onSuccess }) {
   useEffect(() => {
     fetchClinics()
     fetchDoctors()
+    fetchSpecialtiesList()
   }, [])
+
+  const fetchSpecialtiesList = async () => {
+    try {
+      const response = await api.get('/specialties')
+      setSpecialtiesList(response.data)
+    } catch (error) {
+      console.error('Error fetching specialties:', error)
+    }
+  }
 
   const fetchClinics = async () => {
     try {
@@ -471,12 +483,17 @@ function UserModal({ user, onClose, onSuccess }) {
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                     Especialidad
                   </label>
-                  <input
-                    type="text"
+                  <select
                     value={formData.specialty}
                     onChange={(e) => setFormData({ ...formData, specialty: e.target.value })}
                     className="input-field"
-                  />
+                  >
+                    <option value="">Seleccionar especialidad</option>
+                    {specialtiesList.map((spec) => (
+                      <option key={spec.id} value={spec.name}>{spec.name}</option>
+                    ))}
+                    <option value="Otra">Otra...</option>
+                  </select>
                 </div>
               </div>
             </>

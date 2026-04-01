@@ -3,7 +3,7 @@ import { useAuth } from '../context/AuthContext'
 import api from '../services/api'
 import {
   User, Lock, Bell, Moon, Sun, Save, Eye, EyeOff,
-  CheckCircle, AlertCircle
+  CheckCircle, AlertCircle, Database, Trash2, Edit, Plus
 } from 'lucide-react'
 
 export default function Settings() {
@@ -25,6 +25,10 @@ export default function Settings() {
     { id: 'security', label: 'Seguridad', icon: Lock },
     { id: 'preferences', label: 'Preferencias', icon: Bell },
   ]
+  
+  if (user?.role === 'admin') {
+    tabs.push({ id: 'catalogs', label: 'Catálogos', icon: Database });
+  }
 
   return (
     <div className="space-y-6">
@@ -61,6 +65,7 @@ export default function Settings() {
           {activeTab === 'preferences' && (
             <PreferencesSettings darkMode={darkMode} toggleDarkMode={toggleDarkMode} />
           )}
+          {activeTab === 'catalogs' && user?.role === 'admin' && <CatalogsSettings />}
         </div>
       </div>
     </div>
@@ -246,9 +251,12 @@ function SecuritySettings() {
 
       <form onSubmit={handleSubmit} className="space-y-4 max-w-md">
         {success && (
-          <div className="p-3 bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400 rounded-lg text-sm flex items-center gap-2">
-            <CheckCircle className="h-5 w-5" />
-            Contraseña actualizada correctamente
+          <div className="p-4 bg-green-50 dark:bg-green-900/40 border border-green-200 dark:border-green-800 rounded-xl flex flex-col items-center justify-center gap-2 text-center shadow-lg animate-in zoom-in-95 duration-300">
+            <div className="w-12 h-12 bg-green-100 dark:bg-green-500/20 rounded-full flex items-center justify-center mb-1">
+              <CheckCircle className="h-6 w-6 text-green-600 dark:text-green-400" />
+            </div>
+            <p className="text-green-800 dark:text-green-300 font-bold text-lg">¡Contraseña actualizada!</p>
+            <p className="text-green-600 dark:text-green-400 text-sm font-medium">Tu nueva contraseña ha sido guardada correctamente.</p>
           </div>
         )}
 
@@ -713,6 +721,142 @@ function PreferencesSettings({ darkMode, toggleDarkMode }) {
             Guardado
           </span>
         )}
+      </div>
+    </div>
+  )
+}
+
+function CatalogsSettings() {
+  const [specialties, setSpecialties] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [editingId, setEditingId] = useState(null)
+  const [formData, setFormData] = useState({ name: '', description: '' })
+  const [error, setError] = useState('')
+
+  useEffect(() => {
+    fetchSpecialties()
+  }, [])
+
+  const fetchSpecialties = async () => {
+    try {
+      const response = await api.get('/specialties')
+      setSpecialties(response.data)
+    } catch (err) {
+      console.error('Error fetching specialties:', err)
+      setError('Error al cargar especialidades')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleSubmit = async (e) => {
+    e.preventDefault()
+    setError('')
+    try {
+      if (editingId) {
+        await api.put(`/specialties/${editingId}`, formData)
+      } else {
+        await api.post('/specialties', formData)
+      }
+      setFormData({ name: '', description: '' })
+      setEditingId(null)
+      fetchSpecialties()
+    } catch (err) {
+      setError(err.response?.data?.error || 'Error al guardar especialidad')
+    }
+  }
+
+  const handleDelete = async (id) => {
+    if (!window.confirm('¿Eliminar esta especialidad?')) return
+    try {
+      await api.delete(`/specialties/${id}`)
+      fetchSpecialties()
+    } catch (err) {
+      setError(err.response?.data?.error || 'Error al eliminar')
+    }
+  }
+
+  if (loading) return <div className="p-4 text-center">Cargando catálogos...</div>
+
+  return (
+    <div className="space-y-6">
+      <div className="card p-6">
+        <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-6">
+          Especialidades Médicas
+        </h2>
+        
+        {error && (
+          <div className="mb-4 p-3 bg-red-50 text-red-700 rounded-lg flex items-center gap-2 text-sm">
+            <AlertCircle className="h-5 w-5" /> {error}
+          </div>
+        )}
+
+        <form onSubmit={handleSubmit} className="mb-8 flex flex-col sm:flex-row gap-4 items-end">
+          <div className="flex-1 w-full">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Nueva Especialidad</label>
+            <input
+              type="text"
+              required
+              value={formData.name}
+              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+              className="input-field"
+              placeholder="Ej. Pediatría General"
+            />
+          </div>
+          <div className="flex-1 w-full">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Descripción (Opcional)</label>
+            <input
+              type="text"
+              value={formData.description}
+              onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+              className="input-field"
+              placeholder="Descripción breve..."
+            />
+          </div>
+          <div className="flex gap-2 w-full sm:w-auto">
+            <button type="submit" className="btn-primary flex-1 flex items-center justify-center gap-2">
+              {editingId ? <><Save className="h-4 w-4" /> Guardar</> : <><Plus className="h-4 w-4" /> Agregar</>}
+            </button>
+            {editingId && (
+              <button type="button" onClick={() => { setEditingId(null); setFormData({name:'', description:''}) }} className="btn-secondary flex-1">
+                Cancelar
+              </button>
+            )}
+          </div>
+        </form>
+
+        <div className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-x-auto">
+          <table className="w-full min-w-[600px]">
+            <thead className="bg-gray-50 dark:bg-gray-800">
+              <tr>
+                <th className="px-4 py-3 text-left text-sm font-medium text-gray-500">Nombre</th>
+                <th className="px-4 py-3 text-left text-sm font-medium text-gray-500">Descripción</th>
+                <th className="px-4 py-3 text-right text-sm font-medium text-gray-500">Acciones</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+              {specialties.map(spec => (
+                <tr key={spec.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/50">
+                  <td className="px-4 py-3 text-sm font-medium text-gray-900 dark:text-gray-100">{spec.name}</td>
+                  <td className="px-4 py-3 text-sm text-gray-500">{spec.description || '-'}</td>
+                  <td className="px-4 py-3 text-right">
+                    <button onClick={() => { setEditingId(spec.id); setFormData({name: spec.name, description: spec.description || ''}) }} className="p-1 text-blue-600 hover:bg-blue-50 rounded" title="Editar">
+                      <Edit className="h-4 w-4" />
+                    </button>
+                    <button onClick={() => handleDelete(spec.id)} className="p-1 text-red-600 hover:bg-red-50 rounded ml-2" title="Eliminar">
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </td>
+                </tr>
+              ))}
+              {specialties.length === 0 && (
+                <tr>
+                  <td colSpan="3" className="px-4 py-8 text-center text-gray-500 bg-white dark:bg-gray-800">No hay especialidades registradas</td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   )

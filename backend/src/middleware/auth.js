@@ -28,7 +28,7 @@ const authenticateToken = async (req, res, next) => {
     }
 
     if (result.rows[0].status !== 'active') {
-      return res.status(403).json({ error: 'Account is not active' });
+      return res.status(403).json({ error: 'Usuario desactivado: Contacte a soporte' });
     }
 
     req.user = result.rows[0];

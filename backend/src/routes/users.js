@@ -288,15 +288,26 @@ router.put('/:id', authenticateToken, requireAdmin, [
     const result = await query(queryStr, params);
 
     // Update secretary-specific fields if applicable
-    if (oldResult.rows[0].role === 'secretary' && (scope !== undefined || assignedDoctorId !== undefined)) {
-      const validScope = scope === 'personal' ? 'personal' : 'clinic';
-      await query(
-        `UPDATE secretaries SET
-           scope = $1,
-           assigned_doctor_id = $2
-         WHERE user_id = $3`,
-        [validScope, (validScope === 'personal' && assignedDoctorId) ? assignedDoctorId : null, req.params.id]
-      );
+    if (oldResult.rows[0].role === 'secretary') {
+      if (scope !== undefined || assignedDoctorId !== undefined) {
+        const validScope = scope === 'personal' ? 'personal' : 'clinic';
+        await query(
+          `UPDATE secretaries SET
+             scope = $1,
+             assigned_doctor_id = $2
+           WHERE user_id = $3`,
+          [validScope, (validScope === 'personal' && assignedDoctorId) ? assignedDoctorId : null, req.params.id]
+        );
+      }
+      if (clinicId) {
+        // Delete old clinic assignment and assign new one
+        const secRes = await query('SELECT id FROM secretaries WHERE user_id = $1', [req.params.id]);
+        if (secRes.rows.length > 0) {
+          const secId = secRes.rows[0].id;
+          await query('DELETE FROM secretary_clinics WHERE secretary_id = $1', [secId]);
+          await query('INSERT INTO secretary_clinics (secretary_id, clinic_id) VALUES ($1, $2)', [secId, clinicId]);
+        }
+      }
     }
 
     await logAudit(req.user.id, 'UPDATE_USER', 'users', req.params.id, oldResult.rows[0], { ...result.rows[0], passwordChanged: !!password }, req);
@@ -320,24 +331,48 @@ router.put('/:id', authenticateToken, requireAdmin, [
   }
 });
 
-// Delete user (soft delete - set inactive)
+// Delete user (smart delete: hard delete if no records, soft delete otherwise)
 router.delete('/:id', authenticateToken, requireAdmin, async (req, res) => {
+  const userId = req.params.id;
   try {
-    const result = await query(
-      `UPDATE users SET status = 'inactive', updated_at = CURRENT_TIMESTAMP WHERE id = $1 RETURNING id`,
-      [req.params.id]
-    );
-
-    if (result.rows.length === 0) {
+    const userResult = await query('SELECT role FROM users WHERE id = $1', [userId]);
+    if (userResult.rows.length === 0) {
       return res.status(404).json({ error: 'User not found' });
     }
-
-    await logAudit(req.user.id, 'DELETE_USER', 'users', req.params.id, null, null, req);
-
-    res.json({ message: 'User deactivated successfully' });
+    
+    // Attempt Hard Delete inside a transaction
+    try {
+      await query('BEGIN');
+      // Remove auxiliary records
+      await query('DELETE FROM audit_logs WHERE user_id = $1', [userId]);
+      await query('DELETE FROM patient_parents WHERE parent_id IN (SELECT id FROM parents WHERE user_id = $1)', [userId]);
+      await query('DELETE FROM parents WHERE user_id = $1', [userId]);
+      await query('DELETE FROM secretary_clinics WHERE secretary_id IN (SELECT id FROM secretaries WHERE user_id = $1)', [userId]);
+      await query('DELETE FROM secretaries WHERE user_id = $1', [userId]);
+      // If the doctor has consultations, THIS next line will throw a 23503 foreign_key_violation
+      await query('DELETE FROM doctors WHERE user_id = $1', [userId]);
+      await query('DELETE FROM revoked_tokens WHERE token IN (SELECT token FROM revoked_tokens WHERE token = $1)', ['invalid']); // Dummy query or cleanup if needed
+      
+      // Finally delete user
+      await query('DELETE FROM users WHERE id = $1', [userId]);
+      await query('COMMIT');
+      
+      await logAudit(req.user.id, 'DELETE_USER', 'users', userId, null, null, req);
+      return res.json({ message: 'Usuario eliminado permanentemente del sistema', hardDelete: true });
+    } catch (dbError) {
+      await query('ROLLBACK');
+      // 23503 is foreign_key_violation
+      if (dbError.code === '23503') {
+        // Fallback to Soft Delete
+        await query(`UPDATE users SET status = 'inactive', updated_at = CURRENT_TIMESTAMP WHERE id = $1`, [userId]);
+        await logAudit(req.user.id, 'SOFT_DELETE_USER', 'users', userId, null, null, req);
+        return res.json({ message: 'Usuario desactivado (tiene historial médico retenido)', softDelete: true });
+      }
+      throw dbError; // Rethrow if it's not a FK violation
+    }
   } catch (error) {
     logger.error('Delete user error:', error);
-    res.status(500).json({ error: 'Failed to delete user' });
+    res.status(500).json({ error: 'Failed to delete user', details: error.message });
   }
 });
 

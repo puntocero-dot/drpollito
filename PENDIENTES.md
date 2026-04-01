@@ -7,43 +7,33 @@
 
 ---
 
-## ✅ Completado
+## ✅ Sistema de referrals — COMPLETO
 
 ### Backend
-- [x] `migrations/add_referrals_and_secretary_scope.sql`: tabla `referrals` + columnas `scope`/`assigned_doctor_id` en `secretaries`
-- [x] `routes/referrals.js`: endpoints GET, POST, PATCH /:id/status con lógica de autorización por rol
-- [x] `index.js`: referrals route registrada en `/api/referrals`
-- [x] `routes/patients.js`: doctor ve sus propios pacientes + pacientes referidos activos
-- [x] `routes/appointments.js`: secretaria con scope `personal` filtra solo citas de su doctor asignado
-- [x] `routes/users.js` GET `/`: retorna `secretaryScope` y `assignedDoctorId`
-- [x] `routes/users.js` GET `/:id`: retorna `secretaryScope` y `assignedDoctorId`
-- [x] `routes/users.js` POST: guarda `scope` y `assigned_doctor_id` al crear secretaria
-- [x] `routes/users.js` PUT: actualiza `scope` y `assigned_doctor_id` al editar secretaria
+- [x] Migración SQL: tabla `referrals` + `scope`/`assigned_doctor_id` en `secretaries`
+- [x] `routes/referrals.js`: GET, POST, PATCH status con autorización por rol
+- [x] `routes/patients.js`: doctor ve sus pacientes + referidos activos
+- [x] `routes/appointments.js`: secretaria filtra por scope (clinic/personal)
+- [x] `routes/users.js`: GET lista, GET por ID, POST, PUT — todos manejan `secretaryScope` y `assignedDoctorId`
 
 ### Frontend
-- [x] `PatientDetail.jsx`: botón "Referir paciente" + `ReferralModal` inline funcional
-- [x] `Users.jsx` (UserModal): campos de `scope` y `assignedDoctorId` para secretarias (crear/editar)
-- [x] `Users.jsx` (tabla): muestra "Personal" o "De clínica" en la fila de secretarias
-- [x] `pages/Referrals.jsx`: página completa con lista, filtros por estado, acciones completar/revocar
-- [x] `App.jsx`: ruta `/referrals` registrada (acceso: admin, doctor)
-- [x] `Layout.jsx`: "Referencias" en sidebar (visible para doctor y admin)
+- [x] `PatientDetail.jsx`: tab "Referidos" con lista, badges de estado, botón "Nueva referencia" y refresco automático
+- [x] `PatientDetail.jsx`: botón "Referir" en el header como acceso rápido
+- [x] `Users.jsx`: campos de scope y doctor asignado en modal crear/editar secretaria
+- [x] `pages/Referrals.jsx`: página global de referencias con filtros y acciones
+- [x] `App.jsx` + `Layout.jsx`: ruta y sidebar para doctores y admins
 
 ---
 
-## ❌ Pendiente
+## ❌ Pendiente / Ideas futuras
 
-### Frontend — PRIORIDAD MEDIA
-1. **Tab "Referidos" en PatientDetail:** Mostrar referencias activas/históricas dentro de la ficha del paciente.
-   - Hacer `GET /api/referrals?patientId={id}` al cargar la ficha
-   - Mostrar en un tab nuevo junto a Consultas, Vacunas, etc.
-
-### Opcional / Mejoras futuras
 - Notificación al doctor receptor cuando recibe una referencia activa
 - Vista del paciente mostrando qué doctores tienen acceso referido a su historial
+- Historial de cambios de estado en cada referencia
 
 ---
 
-## Rutas API de referrals (resumen)
+## Rutas API
 | Método | Endpoint | Rol permitido |
 |--------|----------|---------------|
 | GET | `/api/referrals?patientId=&status=` | doctor, secretary, admin |

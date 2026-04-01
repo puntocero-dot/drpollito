@@ -42,6 +42,13 @@ router.get('/', authenticateToken, requireMedicalStaff, async (req, res) => {
       ))`;
       params.push(doctorId);
       paramIndex++;
+    } else if (req.user.role === 'secretary') {
+      sql += ` AND p.clinic_id IN (
+        SELECT clinic_id FROM secretary_clinics 
+        WHERE secretary_id = (SELECT id FROM secretaries WHERE user_id = $${paramIndex})
+      )`;
+      params.push(req.user.id);
+      paramIndex++;
     }
 
     if (clinicId) {

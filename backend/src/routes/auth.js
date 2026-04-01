@@ -50,7 +50,7 @@ router.post('/login', loginLimiter, [
     const user = result.rows[0];
 
     if (user.status !== 'active') {
-      return res.status(403).json({ error: 'Account is not active' });
+      return res.status(403).json({ error: 'Usuario desactivado: Contacte a soporte' });
     }
 
     const validPassword = await bcrypt.compare(password, user.password_hash);

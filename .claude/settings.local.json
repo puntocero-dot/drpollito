@@ -1,7 +1,11 @@
 {
   "permissions": {
     "allow": [
-      "mcp__Claude_Preview__preview_start"
+      "mcp__Claude_Preview__preview_start",
+      "Bash(railway status:*)",
+      "Bash(psql \"postgresql://postgres:AbBeNdwlMirTABiZZhnJBHemQXUdQMhe@switchback.proxy.rlwy.net:31758/railway\" -f \"c:\\\\Users\\\\DELL\\\\Desktop\\\\Proyectos\\\\My_Dr\\\\backend\\\\src\\\\scripts\\\\migrations\\\\add_referrals_and_secretary_scope.sql\")",
+      "Bash(node -e \":*)"
     ]
-  }
+  },
+  "model": "claude-sonnet-4-6"
 }
