@@ -51,6 +51,7 @@ export default function PatientDetail() {
   const [labExamsError, setLabExamsError] = useState(false)
   const [growthError, setGrowthError] = useState(false)
   const [showReferralModal, setShowReferralModal] = useState(false)
+  const [referrals, setReferrals] = useState([])
 
   useEffect(() => {
     if (!id || id === 'undefined') {
@@ -60,7 +61,17 @@ export default function PatientDetail() {
     }
     fetchPatientData()
     fetchPrescriptions()
+    fetchReferrals()
   }, [id])
+
+  const fetchReferrals = async () => {
+    try {
+      const res = await api.get('/referrals', { params: { patientId: id } })
+      setReferrals(res.data)
+    } catch {
+      // referrals no críticos, no bloqueamos la carga
+    }
+  }
 
   const fetchLabExams = async () => {
     try {
@@ -245,6 +256,7 @@ export default function PatientDetail() {
     { id: 'labExams', label: 'Laboratorio' },
     { id: 'vaccinations', label: 'Vacunas' },
     { id: 'growth', label: 'Crecimiento' },
+    { id: 'referrals', label: `Referidos${referrals.length ? ` (${referrals.length})` : ''}` },
   ]
 
   return (
@@ -1070,6 +1082,63 @@ export default function PatientDetail() {
         </div>
       )}
 
+      {activeTab === 'referrals' && (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+              <Stethoscope className="h-5 w-5 text-primary-600" />
+              Referencias médicas
+            </h3>
+            {isDoctor && (
+              <button
+                onClick={() => setShowReferralModal(true)}
+                className="btn-primary flex items-center gap-2 text-sm"
+              >
+                <Plus className="h-4 w-4" />
+                Nueva referencia
+              </button>
+            )}
+          </div>
+
+          {referrals.length === 0 ? (
+            <div className="card p-12 text-center">
+              <Stethoscope className="h-12 w-12 mx-auto text-gray-300 mb-3" />
+              <p className="text-gray-500 dark:text-gray-400">No hay referencias para este paciente</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {referrals.map(ref => {
+                const statusColors = {
+                  active:    'bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300',
+                  completed: 'bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300',
+                  revoked:   'bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300',
+                }
+                const statusLabels = { active: 'Activa', completed: 'Completada', revoked: 'Revocada' }
+                return (
+                  <div key={ref.id} className="card p-4 flex flex-col sm:flex-row sm:items-center gap-3">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-gray-900 dark:text-white">
+                        Dr. {ref.fromDoctorName} → Dr. {ref.toDoctorName}
+                      </p>
+                      {ref.reason && (
+                        <p className="text-sm text-gray-500 dark:text-gray-400 italic mt-0.5 truncate">{ref.reason}</p>
+                      )}
+                      <p className="text-xs text-gray-400 mt-1">
+                        {new Date(ref.createdAt).toLocaleDateString('es-SV', { day: '2-digit', month: 'short', year: 'numeric' })}
+                        {ref.authorizedByName && ` · ${ref.authorizedByName}`}
+                      </p>
+                    </div>
+                    <span className={`inline-block px-3 py-1 rounded-full text-xs font-medium flex-shrink-0 ${statusColors[ref.status]}`}>
+                      {statusLabels[ref.status]}
+                    </span>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Delete Confirmation Dialog */}
       <ConfirmDialog
         isOpen={showDeleteConfirm}
@@ -1310,7 +1379,7 @@ export default function PatientDetail() {
         <ReferralModal
           patientId={id}
           patientName={`${patient?.firstName} ${patient?.lastName}`}
-          onClose={() => setShowReferralModal(false)}
+          onClose={() => { setShowReferralModal(false); fetchReferrals() }}
         />
       )}
 
