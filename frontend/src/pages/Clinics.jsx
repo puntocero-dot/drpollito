@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import api from '../services/api'
 import {
   Building2, Plus, Edit, Users, Calendar, X,
-  Phone, Mail, MapPin, Palette, Layout, Type
+  Phone, Mail, MapPin, Palette, Layout, Type, Upload, ImagePlus
 } from 'lucide-react'
 
 export default function Clinics() {
@@ -180,6 +180,8 @@ function ClinicModal({ clinic, onClose, onSuccess }) {
       enabledModules: ['dashboard', 'patients', 'appointments', 'vaccinations', 'documents', 'lab_exams', 'ai_assistant']
     }
   })
+  const [logoFile, setLogoFile] = useState(null)
+  const [logoPreview, setLogoPreview] = useState(clinic?.logoUrl || '')
 
   const modules = [
     { id: 'dashboard', name: 'Dashboard' },
@@ -206,16 +208,47 @@ function ClinicModal({ clinic, onClose, onSuccess }) {
     })
   }
 
+  const handleFileChange = (e) => {
+    const file = e.target.files[0]
+    if (file) {
+      if (file.size > 5 * 1024 * 1024) {
+        setError('El logo no debe superar los 5MB')
+        return
+      }
+      setLogoFile(file)
+      const url = URL.createObjectURL(file)
+      setLogoPreview(url)
+    }
+  }
+
   const handleSubmit = async (e) => {
     e.preventDefault()
     setLoading(true)
     setError('')
 
     try {
+      const data = new FormData()
+      data.append('name', formData.name)
+      if (formData.address) data.append('address', formData.address)
+      if (formData.phone) data.append('phone', formData.phone)
+      if (formData.email) data.append('email', formData.email)
+      
+      // Enviar la URL existente si no hay archivo nuevo (reusing existing)
+      if (!logoFile && formData.logoUrl) {
+         data.append('logoUrl', formData.logoUrl)
+      }
+      if (logoFile) {
+        data.append('logo', logoFile)
+      }
+
+      data.append('settings', JSON.stringify(formData.settings))
+
+      const config = { headers: { 'Content-Type': 'multipart/form-data' } }
+
       if (clinic) {
-        await api.put(`/clinics/${clinic.id}`, formData)
+        await api.put(`/clinics/${clinic.id}`, data, config)
       } else {
-        await api.post('/clinics', formData)
+        await api.post('/clinics', data, config)
       }
       onSuccess()
     } catch (err) {
@@ -341,14 +374,31 @@ function ClinicModal({ clinic, onClose, onSuccess }) {
             </div>
 
             <div>
-              <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1.5">URL del Logo (Opcional)</label>
-              <input
-                type="text"
-                value={formData.logoUrl}
-                onChange={(e) => setFormData({ ...formData, logoUrl: e.target.value })}
-                className="input-field"
-                placeholder="https://ejemplo.com/logo.png"
-              />
+               <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1.5">Logo del Proyecto (Recomendado 1:1)</label>
+               <div className="flex items-center gap-4 mt-2">
+                 <div className="w-16 h-16 rounded-2xl bg-gray-50 dark:bg-gray-700 border-2 border-dashed border-gray-200 dark:border-gray-600 flex items-center justify-center overflow-hidden shrink-0">
+                   {logoPreview ? (
+                     <img src={logoPreview} alt="Logo preview" className="w-full h-full object-contain p-1" />
+                   ) : (
+                     <ImagePlus className="h-6 w-6 text-gray-400" />
+                   )}
+                 </div>
+                 <div className="flex-1">
+                   <label className="flex items-center justify-center w-full px-4 py-2 border border-gray-200 dark:border-gray-600 rounded-xl cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+                     <Upload className="h-4 w-4 mr-2 text-gray-500" />
+                     <span className="text-sm font-bold text-gray-600 dark:text-gray-300">
+                       {logoFile ? logoFile.name : 'Subir archivo...'}
+                     </span>
+                     <input
+                       type="file"
+                       accept="image/png, image/jpeg, image/webp, image/svg+xml"
+                       className="hidden"
+                       onChange={handleFileChange}
+                     />
+                   </label>
+                   <p className="text-[10px] text-gray-400 mt-1">PNG, JPG, WebP o SVG. Máx 5MB.</p>
+                 </div>
+               </div>
             </div>
           </div>
 

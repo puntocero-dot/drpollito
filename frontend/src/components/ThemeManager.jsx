@@ -17,9 +17,14 @@ export default function ThemeManager() {
         
         // Add variants (simple opacity/overlay for consistency)
         root.style.setProperty('--brand-accent-50', `${primaryColor}10`) // 10% opacity
+        root.style.setProperty('--brand-accent-100', `${primaryColor}20`) // 20% opacity
         root.style.setProperty('--brand-accent-600', `${primaryColor}ee`) // 93% opacity
         root.style.setProperty('--brand-accent-700', `${primaryColor}cc`) // 80% opacity
         root.style.setProperty('--brand-accent-900', `${primaryColor}aa`) // 66% opacity
+
+        // Add surface tint backgrounds (very subtle)
+        // 2% for light mode, 5% for dark mode
+        root.style.setProperty('--brand-surface-tint', `${primaryColor}05`) 
       }
 
       // Inject Font Family
@@ -40,7 +45,7 @@ export default function ThemeManager() {
       }
     } else {
       // Reset to defaults
-      const props = ['--brand-accent', '--brand-primary', '--brand-accent-50', '--brand-accent-600', '--brand-accent-700', '--brand-accent-900', '--font-family']
+      const props = ['--brand-accent', '--brand-primary', '--brand-accent-50', '--brand-accent-100', '--brand-accent-600', '--brand-accent-700', '--brand-accent-900', '--brand-surface-tint', '--font-family']
       props.forEach(p => root.style.removeProperty(p))
       document.body.style.fontFamily = ''
     }

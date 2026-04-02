@@ -1,11 +1,41 @@
 const express = require('express');
 const { body, validationResult } = require('express-validator');
+const multer = require('multer');
+const multerS3 = require('multer-s3');
+const path = require('path');
 const { query } = require('../config/database');
 const { authenticateToken, requireAdmin, requireMedicalStaff } = require('../middleware/auth');
 const { logAudit } = require('../middleware/audit');
 const logger = require('../config/logger');
+const { s3Client, R2_BUCKET, R2_PUBLIC_URL } = require('../config/s3');
 
 const router = express.Router();
+
+// Configure multer to upload directly to Cloudflare R2
+const storage = multerS3({
+  s3: s3Client,
+  bucket: R2_BUCKET,
+  acl: 'public-read',
+  contentType: multerS3.AUTO_CONTENT_TYPE,
+  key: function (req, file, cb) {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    const extension = path.extname(file.originalname);
+    cb(null, `clinics/logos/${uniqueSuffix}${extension}`);
+  }
+});
+
+const upload = multer({
+  storage,
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit for logos
+  fileFilter: (req, file, cb) => {
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/svg+xml'];
+    if (allowedTypes.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error('Tipo de archivo no permitido. Use JPG, PNG, WebP o SVG.'));
+    }
+  }
+});
 
 // Get all clinics
 router.get('/', authenticateToken, async (req, res) => {
@@ -56,7 +86,7 @@ router.get('/:id', authenticateToken, async (req, res) => {
 });
 
 // Create clinic (admin only)
-router.post('/', authenticateToken, requireAdmin, [
+router.post('/', authenticateToken, requireAdmin, upload.single('logo'), [
   body('name').notEmpty().trim()
 ], async (req, res) => {
   const errors = validationResult(req);
@@ -64,14 +94,28 @@ router.post('/', authenticateToken, requireAdmin, [
     return res.status(400).json({ errors: errors.array() });
   }
 
-  const { name, address, phone, email, logoUrl, settings } = req.body;
+  const { name, address, phone, email } = req.body;
+  let { settings, logoUrl } = req.body;
+  
+  if (typeof settings === 'string') {
+    try {
+      settings = JSON.parse(settings);
+    } catch (e) {
+      settings = {};
+    }
+  }
+
+  // Handle uploaded logo
+  if (req.file) {
+    logoUrl = `${R2_PUBLIC_URL}/${req.file.key}`;
+  }
 
   try {
     const result = await query(
       `INSERT INTO clinics (name, address, phone, email, logo_url, settings)
        VALUES ($1, $2, $3, $4, $5, $6)
        RETURNING *`,
-      [name, address, phone, email, logoUrl, settings || {}]
+      [name, address, phone, email, logoUrl || null, settings || {}]
     );
 
     await logAudit(req.user.id, 'CREATE_CLINIC', 'clinics', result.rows[0].id, null, { name }, req);
@@ -87,8 +131,22 @@ router.post('/', authenticateToken, requireAdmin, [
 });
 
 // Update clinic
-router.put('/:id', authenticateToken, requireAdmin, async (req, res) => {
-  const { name, address, phone, email, logoUrl, settings } = req.body;
+router.put('/:id', authenticateToken, requireAdmin, upload.single('logo'), async (req, res) => {
+  const { name, address, phone, email } = req.body;
+  let { settings, logoUrl } = req.body;
+
+  if (typeof settings === 'string') {
+    try {
+      settings = JSON.parse(settings);
+    } catch (e) {
+      // keep it if it fails or ignore
+    }
+  }
+
+  // Handle uploaded logo
+  if (req.file) {
+    logoUrl = `${R2_PUBLIC_URL}/${req.file.key}`;
+  }
 
   try {
     const result = await query(

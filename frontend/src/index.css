@@ -4,7 +4,12 @@
 
 @layer base {
   html {
-    @apply font-sans antialiased bg-brand-surface text-brand-dark dark:bg-brand-dark dark:text-gray-100;
+    @apply font-sans antialiased text-brand-dark dark:text-gray-100;
+    background-color: var(--brand-surface-tint, #f8fafc);
+  }
+  
+  html.dark {
+    background-color: var(--brand-surface-tint, #0f172a);
   }
   
   h1, h2, h3, h4, h5, h6 {
@@ -14,7 +19,8 @@
 
 @layer utilities {
   .glass-card {
-    @apply bg-white/70 dark:bg-slate-900/60 backdrop-blur-xl border border-white/20 dark:border-white/10 shadow-glass-light dark:shadow-glass-dark rounded-[2rem];
+    @apply bg-white/70 dark:bg-slate-900/60 backdrop-blur-xl shadow-glass-light dark:shadow-glass-dark rounded-[2rem];
+    border: 1px solid var(--brand-accent-100, rgba(255, 255, 255, 0.2));
     transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275), box-shadow 0.4s ease;
   }
 

@@ -63,7 +63,7 @@ export default function Layout() {
 
   return (
     <div className={`min-h-screen ${darkMode ? 'dark' : ''} selection:bg-brand-accent/30`}>
-      <div className="min-h-screen bg-brand-surface dark:bg-brand-dark transition-colors duration-500">
+      <div className="min-h-screen transition-colors duration-500">
         {/* Mobile sidebar backdrop */}
         {(sidebarOpen || userMenuOpen) && (
           <div 
