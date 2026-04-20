@@ -97,13 +97,14 @@ router.get('/:id', authenticateToken, async (req, res) => {
               p.date_of_birth, p.allergies, p.weight_kg,
               u.first_name as doctor_first_name, u.last_name as doctor_last_name,
               d.medical_license, d.specialty, d.signature_url, d.stamp_url,
-              c.name as clinic_name, c.address as clinic_address, c.phone as clinic_phone
+              c.name as clinic_name, c.address as clinic_address, c.phone as clinic_phone, c.logo_url as clinic_logo_url
        FROM prescriptions pr
        JOIN patients p ON pr.patient_id = p.id
        JOIN doctors d ON pr.doctor_id = d.id
        JOIN users u ON d.user_id = u.id
        LEFT JOIN clinics c ON d.clinic_id = c.id
-       WHERE pr.id = $1`,
+       WHERE pr.id = $1
+       LIMIT 1`,
       [req.params.id]
     );
 
@@ -144,7 +145,8 @@ router.get('/:id', authenticateToken, async (req, res) => {
       clinic: {
         name: pr.clinic_name,
         address: pr.clinic_address,
-        phone: pr.clinic_phone
+        phone: pr.clinic_phone,
+        logoUrl: pr.clinic_logo_url
       },
       items: itemsResult.rows.map(i => ({
         id: i.id,

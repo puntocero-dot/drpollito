@@ -894,7 +894,7 @@ export default function PatientDetail() {
                   className={`px-3 py-1 rounded text-sm font-medium ${view3DMode === '3d' ? 'bg-primary-600 text-white' : 'bg-gray-100 dark:bg-gray-700'
                     }`}
                 >
-                  🧍 3D
+                  📊 Clínico
                 </button>
                 <button
                   onClick={() => setView3DMode('curves')}

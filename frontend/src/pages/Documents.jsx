@@ -5,6 +5,7 @@ import {
   Filter, Calendar, User
 } from 'lucide-react'
 import DocumentModal from '../components/DocumentModal'
+import DocumentViewModal from '../components/DocumentViewModal'
 import { useAuth } from '../context/AuthContext'
 import { useNavigate } from 'react-router-dom'
 
@@ -13,17 +14,20 @@ export default function Documents() {
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState({ type: '', search: '' })
   const [showDocumentModal, setShowDocumentModal] = useState(false)
+  const [viewingDocId, setViewingDocId] = useState(null)
   const { user, isDoctor, isAdmin } = useAuth()
   const navigate = useNavigate()
 
   useEffect(() => {
-    fetchDocuments()
-  }, [filter.type])
+    const timeout = setTimeout(fetchDocuments, filter.search ? 300 : 0)
+    return () => clearTimeout(timeout)
+  }, [filter.type, filter.search])
 
   const fetchDocuments = async () => {
     try {
       const params = {}
       if (filter.type) params.type = filter.type
+      if (filter.search) params.search = filter.search
       const response = await api.get('/documents', { params })
       setDocuments(response.data)
     } catch (error) {
@@ -134,12 +138,7 @@ export default function Documents() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-              {documents
-                .filter(doc => 
-                  !filter.search || 
-                  `${doc.patient?.firstName} ${doc.patient?.lastName}`.toLowerCase().includes(filter.search.toLowerCase())
-                )
-                .map((doc) => (
+              {documents.map((doc) => (
                 <tr key={doc.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50">
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-3">
@@ -175,19 +174,22 @@ export default function Documents() {
                   <td className="px-4 py-3">
                     <div className="flex items-center justify-end gap-2">
                       <button
+                        onClick={() => setViewingDocId(doc.id)}
                         className="p-2 text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
                         title="Ver documento"
                       >
                         <Eye className="h-4 w-4" />
                       </button>
                       <button
+                        onClick={() => setViewingDocId(doc.id)}
                         className="p-2 text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
-                        title="Descargar"
+                        title="Descargar / Imprimir"
                       >
                         <Download className="h-4 w-4" />
                       </button>
                       {!doc.sentAt && (
                         <button
+                          onClick={() => setViewingDocId(doc.id)}
                           className="p-2 text-primary-600 hover:bg-primary-50 dark:hover:bg-primary-900/20 rounded-lg"
                           title="Enviar por email"
                         >
@@ -222,6 +224,17 @@ export default function Documents() {
             fetchDocuments()
           }}
           enablePatientSearch={true}
+        />
+      )}
+
+      {viewingDocId && (
+        <DocumentViewModal
+          documentId={viewingDocId}
+          onClose={() => setViewingDocId(null)}
+          onSent={() => {
+            setViewingDocId(null)
+            fetchDocuments()
+          }}
         />
       )}
     </div>

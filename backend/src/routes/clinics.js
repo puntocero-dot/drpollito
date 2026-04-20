@@ -58,6 +58,32 @@ router.get('/', authenticateToken, async (req, res) => {
   }
 });
 
+// Public branding endpoint — no auth required (used by login page)
+router.get('/public/branding', async (req, res) => {
+  const { clinicId } = req.query;
+  try {
+    let result;
+    if (clinicId) {
+      result = await query('SELECT name, logo_url, settings FROM clinics WHERE id = $1', [clinicId]);
+    } else {
+      result = await query('SELECT name, logo_url, settings FROM clinics ORDER BY created_at ASC LIMIT 1');
+    }
+    if (result.rows.length === 0) {
+      return res.json({ name: 'My_Dr', logoUrl: null, loginBgUrl: null, primaryColor: null });
+    }
+    const c = result.rows[0];
+    res.json({
+      name: c.name,
+      logoUrl: c.logo_url || null,
+      loginBgUrl: c.settings?.loginBgUrl || null,
+      primaryColor: c.settings?.primaryColor || null
+    });
+  } catch (error) {
+    logger.error('Get branding error:', error);
+    res.json({ name: 'My_Dr', logoUrl: null, loginBgUrl: null, primaryColor: null });
+  }
+});
+
 // Get clinic by ID
 router.get('/:id', authenticateToken, async (req, res) => {
   try {

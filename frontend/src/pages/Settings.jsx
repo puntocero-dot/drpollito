@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react'
 import { useAuth } from '../context/AuthContext'
+import { useProject } from '../context/ProjectContext'
 import api from '../services/api'
 import {
   User, Lock, Bell, Moon, Sun, Save, Eye, EyeOff,
-  CheckCircle, AlertCircle, Database, Trash2, Edit, Plus
+  CheckCircle, AlertCircle, Database, Trash2, Edit, Plus, Palette
 } from 'lucide-react'
 
 export default function Settings() {
@@ -27,6 +28,7 @@ export default function Settings() {
   ]
   
   if (user?.role === 'admin') {
+    tabs.push({ id: 'branding', label: 'Branding', icon: Palette });
     tabs.push({ id: 'catalogs', label: 'Catálogos', icon: Database });
   }
 
@@ -65,6 +67,7 @@ export default function Settings() {
           {activeTab === 'preferences' && (
             <PreferencesSettings darkMode={darkMode} toggleDarkMode={toggleDarkMode} />
           )}
+          {activeTab === 'branding' && user?.role === 'admin' && <BrandingSettings />}
           {activeTab === 'catalogs' && user?.role === 'admin' && <CatalogsSettings />}
         </div>
       </div>
@@ -721,6 +724,158 @@ function PreferencesSettings({ darkMode, toggleDarkMode }) {
             Guardado
           </span>
         )}
+      </div>
+    </div>
+  )
+}
+
+function BrandingSettings() {
+  const { activeProject } = useProject()
+  const [loading, setLoading] = useState(false)
+  const [success, setSuccess] = useState(false)
+  const [error, setError] = useState('')
+  const [loginBgUrl, setLoginBgUrl] = useState('')
+  const [primaryColor, setPrimaryColor] = useState('#06b6d4')
+
+  useEffect(() => {
+    if (!activeProject?.id) return
+    api.get(`/clinics/${activeProject.id}`)
+      .then(res => {
+        setLoginBgUrl(res.data.settings?.loginBgUrl || '')
+        setPrimaryColor(res.data.settings?.primaryColor || '#06b6d4')
+      })
+      .catch(() => {})
+  }, [activeProject?.id])
+
+  const handleSave = async () => {
+    if (!activeProject?.id) return
+    setLoading(true)
+    setSuccess(false)
+    setError('')
+    try {
+      const existing = await api.get(`/clinics/${activeProject.id}`)
+      const currentSettings = existing.data.settings || {}
+      await api.put(`/clinics/${activeProject.id}`, {
+        settings: { ...currentSettings, loginBgUrl: loginBgUrl.trim() || null, primaryColor }
+      })
+      setSuccess(true)
+      setTimeout(() => setSuccess(false), 3000)
+    } catch (err) {
+      setError(err.response?.data?.error || 'Error al guardar')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const previewBg = loginBgUrl.trim() || 'https://images.unsplash.com/photo-1631815588090-d4bfec5b1ccb?w=400&q=60'
+
+  return (
+    <div className="space-y-6">
+      <div className="card p-6">
+        <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-1">Branding del Login</h2>
+        <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">
+          Personaliza la pantalla de inicio de sesión para esta clínica.
+        </p>
+
+        {error && (
+          <div className="mb-4 p-3 bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300 rounded-lg flex items-center gap-2 text-sm">
+            <AlertCircle className="h-4 w-4" /> {error}
+          </div>
+        )}
+        {success && (
+          <div className="mb-4 p-3 bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300 rounded-lg flex items-center gap-2 text-sm">
+            <CheckCircle className="h-4 w-4" /> Cambios guardados correctamente
+          </div>
+        )}
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                URL de imagen de fondo
+              </label>
+              <input
+                type="url"
+                value={loginBgUrl}
+                onChange={e => setLoginBgUrl(e.target.value)}
+                placeholder="https://..."
+                className="input-field"
+              />
+              <p className="text-xs text-gray-400 mt-1">
+                Deja en blanco para usar la imagen por defecto. Recomendado: 1920×1080px.
+              </p>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                Color principal del botón
+              </label>
+              <div className="flex items-center gap-3">
+                <input
+                  type="color"
+                  value={primaryColor}
+                  onChange={e => setPrimaryColor(e.target.value)}
+                  className="h-10 w-16 rounded-lg border border-gray-300 dark:border-gray-600 cursor-pointer p-1"
+                />
+                <input
+                  type="text"
+                  value={primaryColor}
+                  onChange={e => setPrimaryColor(e.target.value)}
+                  className="input-field flex-1 font-mono text-sm"
+                  placeholder="#06b6d4"
+                />
+              </div>
+            </div>
+
+            <button
+              onClick={handleSave}
+              disabled={loading}
+              className="btn-primary flex items-center gap-2 mt-2"
+            >
+              {loading ? (
+                <span className="animate-spin h-4 w-4 border-2 border-white/30 border-t-white rounded-full" />
+              ) : (
+                <Save className="h-4 w-4" />
+              )}
+              Guardar cambios
+            </button>
+          </div>
+
+          {/* Preview */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              Vista previa
+            </label>
+            <div
+              className="relative rounded-2xl overflow-hidden h-64 shadow-lg"
+              style={{ backgroundImage: `url(${previewBg})`, backgroundSize: 'cover', backgroundPosition: 'center' }}
+            >
+              <div className="absolute inset-0 bg-black/50" />
+              <div className="absolute inset-0 flex items-center justify-center">
+                <div
+                  className="rounded-2xl p-5 w-44 text-center shadow-xl"
+                  style={{
+                    background: 'rgba(255,255,255,0.12)',
+                    backdropFilter: 'blur(16px)',
+                    border: '1px solid rgba(255,255,255,0.2)',
+                  }}
+                >
+                  <div
+                    className="w-10 h-10 rounded-xl mx-auto mb-3 flex items-center justify-center text-white font-bold text-lg"
+                    style={{ background: 'rgba(255,255,255,0.20)' }}
+                  >+</div>
+                  <p className="text-white font-bold text-sm mb-3">{activeProject?.name || 'My_Dr'}</p>
+                  <div
+                    className="w-full py-1.5 rounded-lg text-white text-xs font-bold tracking-wider"
+                    style={{ background: primaryColor }}
+                  >
+                    INICIAR SESIÓN
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   )

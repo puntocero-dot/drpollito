@@ -245,15 +245,25 @@ router.get('/schedule/:ageMonths', authenticateToken, async (req, res) => {
 // Get patients with overdue vaccinations
 router.get('/overdue', authenticateToken, requireMedicalStaff, async (req, res) => {
   try {
-    let doctorFilter = '';
+    let scopeFilter = '';
     const params = [];
+
     if (req.user.role === 'doctor') {
       const docRes = await query('SELECT id FROM doctors WHERE user_id = $1', [req.user.id]);
-      if (docRes.rows.length > 0) {
-        doctorFilter = 'AND p.doctor_id = $1';
-        params.push(docRes.rows[0].id);
-      } else {
-        return res.json([]);
+      if (docRes.rows.length === 0) return res.json([]);
+      scopeFilter = 'AND p.doctor_id = $1';
+      params.push(docRes.rows[0].id);
+    } else if (req.user.role === 'secretary') {
+      scopeFilter = `AND p.clinic_id IN (
+        SELECT clinic_id FROM secretary_clinics
+        WHERE secretary_id = (SELECT id FROM secretaries WHERE user_id = $1)
+      )`;
+      params.push(req.user.id);
+    } else if (req.user.role === 'admin') {
+      const { clinicId } = req.query;
+      if (clinicId) {
+        scopeFilter = 'AND p.clinic_id = $1';
+        params.push(clinicId);
       }
     }
 
@@ -268,7 +278,7 @@ router.get('/overdue', authenticateToken, requireMedicalStaff, async (req, res) 
         AND v.is_active = true
         AND pv.id IS NULL
         AND (EXTRACT(YEAR FROM AGE(p.date_of_birth)) * 12 + EXTRACT(MONTH FROM AGE(p.date_of_birth))) >= ANY(v.recommended_ages_months)
-        ${doctorFilter}
+        ${scopeFilter}
       GROUP BY p.id
       ORDER BY p.last_name, p.first_name
     `, params);

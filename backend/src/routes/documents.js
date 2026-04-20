@@ -4,7 +4,11 @@ const { v4: uuidv4 } = require('uuid');
 const { query } = require('../config/database');
 const { authenticateToken, requireMedicalStaff } = require('../middleware/auth');
 const { logAudit } = require('../middleware/audit');
+const { Resend } = require('resend');
 const logger = require('../config/logger');
+
+const resend = new Resend(process.env.RESEND_API_KEY);
+const FROM_EMAIL = process.env.FROM_EMAIL || 'My Dr <noreply@mydr.com>';
 
 const router = express.Router();
 
@@ -12,6 +16,8 @@ const router = express.Router();
 router.get('/', authenticateToken, async (req, res) => {
   try {
     const { patientId, type, limit = 50 } = req.query;
+
+    const { search } = req.query;
 
     let sql = `
       SELECT d.*,
@@ -34,6 +40,12 @@ router.get('/', authenticateToken, async (req, res) => {
     if (type) {
       sql += ` AND d.type = $${paramIndex++}`;
       params.push(type);
+    }
+
+    if (search) {
+      sql += ` AND (p.first_name ILIKE $${paramIndex} OR p.last_name ILIKE $${paramIndex} OR d.title ILIKE $${paramIndex})`;
+      params.push(`%${search}%`);
+      paramIndex++;
     }
 
     sql += ` ORDER BY d.created_at DESC LIMIT $${paramIndex}`;
@@ -274,6 +286,92 @@ router.post('/templates', authenticateToken, requireMedicalStaff, [
   } catch (error) {
     logger.error('Create template error:', error);
     res.status(500).json({ error: 'Failed to create template' });
+  }
+});
+
+// Send document via email
+router.post('/:id/email', authenticateToken, requireMedicalStaff, [
+  body('to').isEmail()
+], async (req, res) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    return res.status(400).json({ errors: errors.array() });
+  }
+
+  const { to } = req.body;
+
+  try {
+    const result = await query(
+      `SELECT d.*,
+              p.first_name as patient_first_name, p.last_name as patient_last_name,
+              u.first_name as doctor_first_name, u.last_name as doctor_last_name,
+              doc.medical_license, doc.specialty,
+              c.name as clinic_name
+       FROM documents d
+       JOIN patients p ON d.patient_id = p.id
+       LEFT JOIN doctors doc ON d.doctor_id = doc.id
+       LEFT JOIN users u ON doc.user_id = u.id
+       LEFT JOIN clinics c ON doc.clinic_id = c.id
+       WHERE d.id = $1`,
+      [req.params.id]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Document not found' });
+    }
+
+    const d = result.rows[0];
+    const patientName = `${d.patient_first_name} ${d.patient_last_name}`;
+    const doctorName = d.doctor_first_name ? `Dr. ${d.doctor_first_name} ${d.doctor_last_name}` : '';
+    const contentHtml = (d.content || '').replace(/\n/g, '<br/>');
+
+    if (!process.env.RESEND_API_KEY) {
+      return res.status(503).json({ error: 'Email service not configured' });
+    }
+
+    await resend.emails.send({
+      from: FROM_EMAIL,
+      to: [to],
+      subject: `${d.title || 'Documento Médico'} — ${patientName}`,
+      html: `
+        <!DOCTYPE html><html><head>
+        <style>
+          body { font-family: Arial, sans-serif; color: #333; margin: 0; padding: 0; }
+          .header { background: #1d4ed8; color: white; padding: 24px 32px; }
+          .body { padding: 32px; max-width: 600px; margin: 0 auto; }
+          .meta { font-size: 13px; color: #666; margin-bottom: 24px; }
+          .content { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 24px; white-space: pre-wrap; font-size: 14px; line-height: 1.7; }
+          .qr { margin-top: 24px; font-size: 12px; color: #94a3b8; }
+          .footer { margin-top: 32px; font-size: 12px; color: #94a3b8; text-align: center; }
+        </style>
+        </head><body>
+        <div class="header"><h2 style="margin:0">${d.title || 'Documento Médico'}</h2></div>
+        <div class="body">
+          <div class="meta">
+            <strong>Paciente:</strong> ${patientName}<br/>
+            ${doctorName ? `<strong>Doctor:</strong> ${doctorName}<br/>` : ''}
+            ${d.clinic_name ? `<strong>Clínica:</strong> ${d.clinic_name}<br/>` : ''}
+            <strong>Fecha:</strong> ${new Date(d.created_at).toLocaleDateString('es-ES')}
+          </div>
+          <div class="content">${contentHtml}</div>
+          <div class="qr">Código de verificación: ${d.qr_verification_code || ''}</div>
+        </div>
+        <div class="footer">${d.clinic_name || 'My Dr'} · Documento generado digitalmente</div>
+        </body></html>
+      `
+    });
+
+    await query(
+      `UPDATE documents SET sent_to_email = $1, sent_at = CURRENT_TIMESTAMP WHERE id = $2`,
+      [to, req.params.id]
+    );
+
+    await logAudit(req.user.id, 'SEND_DOCUMENT_EMAIL', 'documents', req.params.id, null, { to }, req);
+
+    res.json({ message: 'Document sent successfully', sentTo: to });
+  } catch (error) {
+    logger.error('Send document email error:', error);
+    res.status(500).json({ error: 'Failed to send document email' });
   }
 });
 

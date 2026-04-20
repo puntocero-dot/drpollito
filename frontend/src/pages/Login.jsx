@@ -1,7 +1,10 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
-import { Stethoscope, Eye, EyeOff, AlertCircle, ChevronRight } from 'lucide-react'
+import { Mail, Lock, Eye, EyeOff, AlertCircle } from 'lucide-react'
+import api from '../services/api'
+
+const DEFAULT_BG = 'https://images.unsplash.com/photo-1631815588090-d4bfec5b1ccb?w=1920&q=80'
 
 export default function Login() {
   const [email, setEmail] = useState('')
@@ -9,23 +12,27 @@ export default function Login() {
   const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const [branding, setBranding] = useState({ name: 'My_Dr', logoUrl: null, loginBgUrl: null, primaryColor: null })
   const { login } = useAuth()
   const navigate = useNavigate()
+
+  useEffect(() => {
+    const clinicId = import.meta.env.VITE_CLINIC_ID
+    api.get('/clinics/public/branding', { params: clinicId ? { clinicId } : {} })
+      .then(res => setBranding(res.data))
+      .catch(() => {})
+  }, [])
 
   const handleSubmit = async (e) => {
     e.preventDefault()
     setError('')
     setLoading(true)
-
     try {
       await login(email, password)
       navigate('/dashboard')
     } catch (err) {
-      console.error('Login error:', err)
       if (err.code === 'ERR_NETWORK') {
-        setError(`Error de red: No se pudo conectar al servidor (${import.meta.env.VITE_API_URL || 'localhost:3001'})`)
-      } else if (err.message?.includes('CORS') || err.message?.includes('Network Error')) {
-        setError(`Error CORS/Red: ${err.message}`)
+        setError(`Error de red: No se pudo conectar al servidor`)
       } else {
         setError(err.response?.data?.error || err.message || 'Error al iniciar sesión')
       }
@@ -34,98 +41,130 @@ export default function Login() {
     }
   }
 
+  const bgImage = branding.loginBgUrl || DEFAULT_BG
+  const accentColor = branding.primaryColor || '#06b6d4'
+
   return (
-    <div className="min-h-screen relative overflow-hidden bg-brand-dark flex items-center justify-center p-4">
-      {/* Decorative background elements */}
-      <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-brand-accent/20 rounded-full blur-[120px] animate-pulse" />
-      <div className="absolute bottom-[-10%] right-[-10%] w-[30%] h-[30%] bg-blue-500/10 rounded-full blur-[100px]" />
-      
-      <div className="w-full max-w-lg relative z-10 transition-all duration-500 ease-out animate-in fade-in zoom-in duration-700">
-        <div className="glass-card p-8 md:p-12">
-          {/* Logo & Header */}
+    <div
+      className="min-h-screen relative overflow-hidden flex items-center justify-center"
+      style={{
+        backgroundImage: `url(${bgImage})`,
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+      }}
+    >
+      {/* Overlay */}
+      <div className="absolute inset-0 bg-black/50" />
+
+      {/* Card */}
+      <div className="relative z-10 w-full max-w-sm mx-6">
+        <div
+          className="rounded-3xl p-8 shadow-2xl"
+          style={{
+            background: 'rgba(255,255,255,0.10)',
+            backdropFilter: 'blur(24px)',
+            WebkitBackdropFilter: 'blur(24px)',
+            border: '1px solid rgba(255,255,255,0.18)',
+          }}
+        >
+          {/* Logo / Header */}
           <div className="text-center mb-10">
-            <div className="inline-flex items-center justify-center w-20 h-20 bg-gradient-to-tr from-brand-accent to-emerald-400 rounded-2xl rotate-3 shadow-lg shadow-emerald-500/20 mb-6 transition-transform hover:rotate-0 duration-500">
-              <Stethoscope className="h-10 w-10 text-white" />
-            </div>
-            <h1 className="text-4xl font-extrabold text-white tracking-tight mb-2">
-              My<span className="text-brand-accent">_</span>Dr
+            {branding.logoUrl ? (
+              <img
+                src={branding.logoUrl}
+                alt={branding.name}
+                className="h-16 mx-auto mb-4 object-contain drop-shadow-lg"
+              />
+            ) : (
+              <div
+                className="inline-flex items-center justify-center w-16 h-16 rounded-2xl mb-4 text-white text-2xl font-extrabold shadow-lg"
+                style={{ background: 'rgba(255,255,255,0.20)' }}
+              >
+                +
+              </div>
+            )}
+            <h1 className="text-3xl font-extrabold text-white tracking-tight">
+              {branding.name}
             </h1>
-            <p className="text-slate-400 font-medium">
-              Gestión Médica de Próxima Generación
+            <p className="text-white/55 text-sm mt-1 font-medium tracking-wide uppercase">
+              Portal Médico
             </p>
           </div>
 
-          {/* Error message */}
+          {/* Error */}
           {error && (
-            <div className="mb-8 p-4 bg-rose-500/10 border border-rose-500/20 rounded-2xl flex items-center gap-3 text-rose-400 animate-in slide-in-from-top-2 duration-300">
-              <AlertCircle className="h-5 w-5 flex-shrink-0" />
-              <span className="text-sm font-medium">{error}</span>
+            <div className="mb-6 flex items-start gap-2 text-red-200 text-sm bg-red-500/20 border border-red-400/30 rounded-xl px-3 py-2">
+              <AlertCircle className="h-4 w-4 mt-0.5 flex-shrink-0" />
+              <span>{error}</span>
             </div>
           )}
 
-          {/* Form */}
-          <form onSubmit={handleSubmit} className="space-y-6">
-            <div className="space-y-2">
-              <label className="block text-sm font-semibold text-slate-300 ml-1">
-                Correo electrónico
-              </label>
-              <div className="relative group">
-                <input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="input-field group-hover:border-brand-accent/50 transition-colors"
-                  placeholder="doctor@mydr.com"
-                  required
-                />
-              </div>
+          <form onSubmit={handleSubmit} className="space-y-8">
+            {/* Email */}
+            <div className="relative">
+              <Mail className="absolute left-0 top-1/2 -translate-y-1/2 h-5 w-5 text-white/45" />
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="Correo electrónico"
+                required
+                autoComplete="email"
+                className="w-full bg-transparent pl-8 pb-2 pt-1 text-white text-sm placeholder-white/40 outline-none focus:placeholder-white/60 transition-colors"
+                style={{ borderBottom: '1px solid rgba(255,255,255,0.35)' }}
+                onFocus={e => (e.target.style.borderBottomColor = accentColor)}
+                onBlur={e => (e.target.style.borderBottomColor = 'rgba(255,255,255,0.35)')}
+              />
             </div>
 
-            <div className="space-y-2">
-              <label className="block text-sm font-semibold text-slate-300 ml-1">
-                Contraseña
-              </label>
-              <div className="relative group">
-                <input
-                  type={showPassword ? 'text' : 'password'}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="input-field pr-12 group-hover:border-brand-accent/50 transition-colors"
-                  placeholder="••••••••"
-                  required
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white transition-colors"
-                >
-                  {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
-                </button>
-              </div>
+            {/* Password */}
+            <div className="relative">
+              <Lock className="absolute left-0 top-1/2 -translate-y-1/2 h-5 w-5 text-white/45" />
+              <input
+                type={showPassword ? 'text' : 'password'}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="Contraseña"
+                required
+                autoComplete="current-password"
+                className="w-full bg-transparent pl-8 pr-10 pb-2 pt-1 text-white text-sm placeholder-white/40 outline-none focus:placeholder-white/60 transition-colors"
+                style={{ borderBottom: '1px solid rgba(255,255,255,0.35)' }}
+                onFocus={e => (e.target.style.borderBottomColor = accentColor)}
+                onBlur={e => (e.target.style.borderBottomColor = 'rgba(255,255,255,0.35)')}
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-0 top-1/2 -translate-y-1/2 text-white/45 hover:text-white/80 transition-colors"
+              >
+                {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </button>
             </div>
 
+            {/* Submit */}
             <button
               type="submit"
               disabled={loading}
-              className="w-full btn-primary py-4 text-lg mt-4 group"
+              className="w-full font-bold py-3 rounded-xl text-white tracking-widest text-sm uppercase transition-all duration-200 shadow-lg active:scale-95 mt-2"
+              style={{
+                background: loading ? 'rgba(6,182,212,0.6)' : accentColor,
+                boxShadow: `0 8px 24px ${accentColor}55`,
+              }}
             >
               {loading ? (
-                <div className="flex items-center gap-3">
-                  <div className="animate-spin rounded-full h-5 w-5 border-2 border-white/30 border-t-white" />
-                  <span>Autenticando...</span>
-                </div>
-              ) : (
                 <span className="flex items-center justify-center gap-2">
-                  Entrar al Portal <ChevronRight className="h-5 w-5 group-hover:translate-x-1 transition-transform" />
+                  <span className="animate-spin h-4 w-4 border-2 border-white/30 border-t-white rounded-full inline-block" />
+                  Autenticando...
                 </span>
+              ) : (
+                'Iniciar Sesión'
               )}
             </button>
           </form>
-
         </div>
 
-        <p className="text-center text-xs text-slate-500 mt-8 font-medium">
-          © {new Date().getFullYear()} My_Dr • Plataforma Médica Segura
+        <p className="text-center text-white/35 text-xs mt-6 tracking-wide">
+          © {new Date().getFullYear()} My_Dr · Plataforma Médica Segura
         </p>
       </div>
     </div>

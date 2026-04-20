@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import api from '../services/api'
 import { useAuth } from '../context/AuthContext'
+import { useProject } from '../context/ProjectContext'
 import {
   Syringe, Search, AlertTriangle, CheckCircle, Clock,
   User, Calendar, Plus, X
@@ -8,6 +9,7 @@ import {
 
 export default function Vaccinations() {
   const { isDoctor, isAdmin } = useAuth()
+  const { activeProject } = useProject()
   const [overduePatients, setOverduePatients] = useState([])
   const [vaccines, setVaccines] = useState([])
   const [loading, setLoading] = useState(true)
@@ -18,12 +20,16 @@ export default function Vaccinations() {
 
   useEffect(() => {
     fetchData()
-  }, [])
+  }, [activeProject?.id])
 
   const fetchData = async () => {
     try {
+      const overdueParams = {}
+      if (isAdmin && activeProject?.id) {
+        overdueParams.clinicId = activeProject.id
+      }
       const [overdueRes, vaccinesRes] = await Promise.all([
-        api.get('/vaccinations/overdue'),
+        api.get('/vaccinations/overdue', { params: overdueParams }),
         api.get('/vaccinations/catalog')
       ])
       setOverduePatients(overdueRes.data)
