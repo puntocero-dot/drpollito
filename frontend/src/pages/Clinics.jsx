@@ -521,7 +521,41 @@ function ClinicModal({ clinic, onClose, onSuccess }) {
                 onChange={handleLoginBgChange}
               />
             </label>
-            <p className="text-[10px] text-gray-400">PNG, JPG o WebP. Máx 10MB. Recomendado: 1920×1080.</p>
+                    <p className="text-[10px] text-gray-400">PNG, JPG o WebP. Máx 10MB. Recomendado: 1920×1080.</p>
+
+            <div>
+              <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1.5">
+                Oscuridad del fondo — {formData.settings.loginOverlayOpacity ?? 45}%
+              </label>
+              <input
+                type="range"
+                min={0}
+                max={80}
+                value={formData.settings.loginOverlayOpacity ?? 45}
+                onChange={(e) => setFormData({
+                  ...formData,
+                  settings: { ...formData.settings, loginOverlayOpacity: Number(e.target.value) }
+                })}
+                className="w-full accent-primary-600"
+              />
+            </div>
+
+            <div>
+              <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1.5">
+                Desenfoque del card — {formData.settings.loginCardBlur ?? 20}px
+              </label>
+              <input
+                type="range"
+                min={0}
+                max={30}
+                value={formData.settings.loginCardBlur ?? 20}
+                onChange={(e) => setFormData({
+                  ...formData,
+                  settings: { ...formData.settings, loginCardBlur: Number(e.target.value) }
+                })}
+                className="w-full accent-primary-600"
+              />
+            </div>
           </div>
 
           <div className="space-y-4 border-t border-gray-100 dark:border-gray-700 pt-6">

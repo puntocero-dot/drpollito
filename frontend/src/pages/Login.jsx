@@ -44,6 +44,8 @@ export default function Login() {
   const bgImage = branding.loginBgUrl || DEFAULT_BG
   const bgPosition = branding.loginBgPosition || 'top center'
   const accentColor = branding.primaryColor || '#06b6d4'
+  const overlayOpacity = branding.loginOverlayOpacity ?? 45
+  const cardBlur = branding.loginCardBlur ?? 20
 
   return (
     <div
@@ -55,16 +57,16 @@ export default function Login() {
       }}
     >
       {/* Overlay */}
-      <div className="absolute inset-0 bg-black/50" />
+      <div className="absolute inset-0" style={{ background: `rgba(0,0,0,${overlayOpacity / 100})` }} />
 
       {/* Card */}
       <div className="relative z-10 w-full max-w-sm mx-6">
         <div
           className="rounded-3xl p-8 shadow-2xl"
           style={{
-            background: 'rgba(255,255,255,0.10)',
-            backdropFilter: 'blur(24px)',
-            WebkitBackdropFilter: 'blur(24px)',
+            background: 'rgba(255,255,255,0.08)',
+            backdropFilter: `blur(${cardBlur}px)`,
+            WebkitBackdropFilter: `blur(${cardBlur}px)`,
             border: '1px solid rgba(255,255,255,0.18)',
           }}
         >

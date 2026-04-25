@@ -83,7 +83,9 @@ router.get('/public/branding', async (req, res) => {
       logoUrl: c.logo_url || null,
       loginBgUrl: c.settings?.loginBgUrl || null,
       loginBgPosition: c.settings?.loginBgPosition || 'top center',
-      primaryColor: c.settings?.primaryColor || null
+      primaryColor: c.settings?.primaryColor || null,
+      loginOverlayOpacity: c.settings?.loginOverlayOpacity ?? 45,
+      loginCardBlur: c.settings?.loginCardBlur ?? 20,
     });
   } catch (error) {
     logger.error('Get branding error:', error);
