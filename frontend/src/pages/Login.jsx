@@ -105,7 +105,7 @@ export default function Login() {
           <form onSubmit={handleSubmit} className="space-y-8">
             {/* Email */}
             <div className="relative">
-              <Mail className="absolute left-0 top-1/2 -translate-y-1/2 h-5 w-5 text-white/45" />
+              <Mail className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-white/50 pointer-events-none" />
               <input
                 type="email"
                 value={email}
@@ -113,16 +113,19 @@ export default function Login() {
                 placeholder="Correo electrónico"
                 required
                 autoComplete="email"
-                className="w-full bg-transparent pl-8 pb-2 pt-1 text-white text-sm placeholder-white/40 outline-none focus:placeholder-white/60 transition-colors"
-                style={{ borderBottom: '1px solid rgba(255,255,255,0.35)' }}
-                onFocus={e => (e.target.style.borderBottomColor = accentColor)}
-                onBlur={e => (e.target.style.borderBottomColor = 'rgba(255,255,255,0.35)')}
+                className="w-full pl-11 pr-4 py-3 text-white text-sm placeholder-white/45 outline-none transition-all rounded-xl"
+                style={{
+                  background: 'rgba(255,255,255,0.12)',
+                  border: '1.5px solid rgba(255,255,255,0.20)',
+                }}
+                onFocus={e => { e.target.style.background = 'rgba(255,255,255,0.18)'; e.target.style.borderColor = accentColor }}
+                onBlur={e => { e.target.style.background = 'rgba(255,255,255,0.12)'; e.target.style.borderColor = 'rgba(255,255,255,0.20)' }}
               />
             </div>
 
             {/* Password */}
             <div className="relative">
-              <Lock className="absolute left-0 top-1/2 -translate-y-1/2 h-5 w-5 text-white/45" />
+              <Lock className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-white/50 pointer-events-none" />
               <input
                 type={showPassword ? 'text' : 'password'}
                 value={password}
@@ -130,15 +133,18 @@ export default function Login() {
                 placeholder="Contraseña"
                 required
                 autoComplete="current-password"
-                className="w-full bg-transparent pl-8 pr-10 pb-2 pt-1 text-white text-sm placeholder-white/40 outline-none focus:placeholder-white/60 transition-colors"
-                style={{ borderBottom: '1px solid rgba(255,255,255,0.35)' }}
-                onFocus={e => (e.target.style.borderBottomColor = accentColor)}
-                onBlur={e => (e.target.style.borderBottomColor = 'rgba(255,255,255,0.35)')}
+                className="w-full pl-11 pr-11 py-3 text-white text-sm placeholder-white/45 outline-none transition-all rounded-xl"
+                style={{
+                  background: 'rgba(255,255,255,0.12)',
+                  border: '1.5px solid rgba(255,255,255,0.20)',
+                }}
+                onFocus={e => { e.target.style.background = 'rgba(255,255,255,0.18)'; e.target.style.borderColor = accentColor }}
+                onBlur={e => { e.target.style.background = 'rgba(255,255,255,0.12)'; e.target.style.borderColor = 'rgba(255,255,255,0.20)' }}
               />
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-0 top-1/2 -translate-y-1/2 text-white/45 hover:text-white/80 transition-colors"
+                className="absolute right-4 top-1/2 -translate-y-1/2 text-white/45 hover:text-white/80 transition-colors"
               >
                 {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
               </button>
