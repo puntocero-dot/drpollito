@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import api from '../services/api'
 import {
   Building2, Plus, X,
@@ -165,6 +165,18 @@ export default function Clinics() {
   )
 }
 
+const POSITION_MAP = {
+  'top left': '0% 0%', 'top center': '50% 0%', 'top right': '100% 0%',
+  'center left': '0% 50%', 'center': '50% 50%', 'center right': '100% 50%',
+  'bottom left': '0% 100%', 'bottom center': '50% 100%', 'bottom right': '100% 100%',
+  'top': '50% 0%', 'bottom': '50% 100%', 'left': '0% 50%', 'right': '100% 50%',
+}
+const normalizePosition = (pos) => {
+  if (!pos) return '50% 50%'
+  if (pos.includes('%')) return pos
+  return POSITION_MAP[pos] || '50% 50%'
+}
+
 function ClinicModal({ clinic, onClose, onSuccess }) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -174,10 +186,13 @@ function ClinicModal({ clinic, onClose, onSuccess }) {
     phone: clinic?.phone || '',
     email: clinic?.email || '',
     logoUrl: clinic?.logoUrl || '',
-    settings: clinic?.settings || {
+    settings: clinic?.settings ? {
+      ...clinic.settings,
+      loginBgPosition: normalizePosition(clinic.settings.loginBgPosition)
+    } : {
       primaryColor: '#0ea5e9',
       fontFamily: 'Inter',
-      loginBgPosition: 'top center',
+      loginBgPosition: '50% 50%',
       enabledModules: ['dashboard', 'patients', 'appointments', 'vaccinations', 'documents', 'lab_exams', 'ai_assistant']
     }
   })
@@ -235,17 +250,48 @@ function ClinicModal({ clinic, onClose, onSuccess }) {
     }
   }
 
-  const BG_POSITIONS = [
-    { label: '↖', value: 'top left' },
-    { label: '↑', value: 'top center' },
-    { label: '↗', value: 'top right' },
-    { label: '←', value: 'center left' },
-    { label: '·', value: 'center' },
-    { label: '→', value: 'center right' },
-    { label: '↙', value: 'bottom left' },
-    { label: '↓', value: 'bottom center' },
-    { label: '↘', value: 'bottom right' },
-  ]
+  const [isDragging, setIsDragging] = useState(false)
+  const dragLastRef = useRef({ x: 0, y: 0 })
+
+  useEffect(() => {
+    if (!isDragging) return
+    const onMove = (e) => {
+      const clientX = e.touches ? e.touches[0].clientX : e.clientX
+      const clientY = e.touches ? e.touches[0].clientY : e.clientY
+      const dx = clientX - dragLastRef.current.x
+      const dy = clientY - dragLastRef.current.y
+      dragLastRef.current = { x: clientX, y: clientY }
+      setFormData(prev => {
+        const pos = prev.settings.loginBgPosition || '50% 50%'
+        const m = pos.match(/^(\d+(?:\.\d+)?)%\s+(\d+(?:\.\d+)?)%$/)
+        const x = m ? parseFloat(m[1]) : 50
+        const y = m ? parseFloat(m[2]) : 50
+        const nx = Math.min(100, Math.max(0, x - dx * 0.25))
+        const ny = Math.min(100, Math.max(0, y - dy * 0.25))
+        return { ...prev, settings: { ...prev.settings, loginBgPosition: `${Math.round(nx)}% ${Math.round(ny)}%` } }
+      })
+    }
+    const onUp = () => setIsDragging(false)
+    window.addEventListener('mousemove', onMove)
+    window.addEventListener('mouseup', onUp)
+    window.addEventListener('touchmove', onMove, { passive: false })
+    window.addEventListener('touchend', onUp)
+    return () => {
+      window.removeEventListener('mousemove', onMove)
+      window.removeEventListener('mouseup', onUp)
+      window.removeEventListener('touchmove', onMove)
+      window.removeEventListener('touchend', onUp)
+    }
+  }, [isDragging])
+
+  const startDrag = (e) => {
+    if (!loginBgPreview) return
+    const clientX = e.touches ? e.touches[0].clientX : e.clientX
+    const clientY = e.touches ? e.touches[0].clientY : e.clientY
+    dragLastRef.current = { x: clientX, y: clientY }
+    setIsDragging(true)
+    e.preventDefault()
+  }
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -437,65 +483,45 @@ function ClinicModal({ clinic, onClose, onSuccess }) {
               Fondo de Pantalla de Login
             </h3>
 
-            <div className="flex gap-4">
-              {/* Preview */}
-              <div
-                className="w-28 h-20 rounded-xl border-2 border-dashed border-gray-200 dark:border-gray-600 overflow-hidden shrink-0 bg-gray-100 dark:bg-gray-700"
-                style={loginBgPreview ? {
-                  backgroundImage: `url(${loginBgPreview})`,
-                  backgroundSize: 'cover',
-                  backgroundPosition: formData.settings.loginBgPosition || 'top center',
-                  borderStyle: 'solid',
-                } : {}}
-              >
-                {!loginBgPreview && (
-                  <div className="w-full h-full flex items-center justify-center">
-                    <ImagePlus className="h-6 w-6 text-gray-400" />
-                  </div>
-                )}
-              </div>
-
-              <div className="flex-1 space-y-2">
-                <label className="flex items-center justify-center w-full px-4 py-2 border border-gray-200 dark:border-gray-600 rounded-xl cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
-                  <Upload className="h-4 w-4 mr-2 text-gray-500" />
-                  <span className="text-sm font-bold text-gray-600 dark:text-gray-300">
-                    {loginBgFile ? loginBgFile.name : loginBgPreview ? 'Cambiar imagen...' : 'Subir imagen...'}
-                  </span>
-                  <input
-                    type="file"
-                    accept="image/png, image/jpeg, image/webp"
-                    className="hidden"
-                    onChange={handleLoginBgChange}
-                  />
-                </label>
-                <p className="text-[10px] text-gray-400">PNG, JPG o WebP. Máx 10MB. Recomendado: 1920×1080.</p>
-
-                {/* Position grid */}
-                <div>
-                  <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Posición del foco</p>
-                  <div className="grid grid-cols-3 gap-1 w-24">
-                    {BG_POSITIONS.map(pos => (
-                      <button
-                        key={pos.value}
-                        type="button"
-                        onClick={() => setFormData({
-                          ...formData,
-                          settings: { ...formData.settings, loginBgPosition: pos.value }
-                        })}
-                        className={`h-7 w-7 rounded-lg text-sm font-bold flex items-center justify-center transition-all ${
-                          (formData.settings.loginBgPosition || 'top center') === pos.value
-                            ? 'bg-primary-600 text-white shadow-md'
-                            : 'bg-gray-100 dark:bg-gray-700 text-gray-500 hover:bg-gray-200 dark:hover:bg-gray-600'
-                        }`}
-                        title={pos.value}
-                      >
-                        {pos.label}
-                      </button>
-                    ))}
-                  </div>
+            {/* Draggable preview */}
+            <div
+              className="w-full h-40 rounded-2xl overflow-hidden border border-gray-200 dark:border-gray-600 bg-gray-100 dark:bg-gray-700 relative select-none"
+              style={loginBgPreview ? {
+                backgroundImage: `url(${loginBgPreview})`,
+                backgroundSize: 'cover',
+                backgroundPosition: formData.settings.loginBgPosition || '50% 50%',
+                cursor: isDragging ? 'grabbing' : 'grab',
+              } : { cursor: 'default' }}
+              onMouseDown={startDrag}
+              onTouchStart={startDrag}
+            >
+              {!loginBgPreview ? (
+                <div className="w-full h-full flex flex-col items-center justify-center gap-2 pointer-events-none">
+                  <ImagePlus className="h-8 w-8 text-gray-300" />
+                  <p className="text-xs text-gray-400">Sube una imagen para ajustar su posición</p>
                 </div>
-              </div>
+              ) : (
+                <div className="absolute bottom-2 left-1/2 -translate-x-1/2 pointer-events-none">
+                  <span className="bg-black/40 text-white text-[10px] px-2 py-0.5 rounded-full backdrop-blur-sm">
+                    {isDragging ? 'Arrastrando…' : '✋ Arrastra para reposicionar'}
+                  </span>
+                </div>
+              )}
             </div>
+
+            <label className="flex items-center justify-center w-full px-4 py-2 border border-gray-200 dark:border-gray-600 rounded-xl cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+              <Upload className="h-4 w-4 mr-2 text-gray-500" />
+              <span className="text-sm font-bold text-gray-600 dark:text-gray-300">
+                {loginBgFile ? loginBgFile.name : loginBgPreview ? 'Cambiar imagen...' : 'Subir imagen...'}
+              </span>
+              <input
+                type="file"
+                accept="image/png, image/jpeg, image/webp"
+                className="hidden"
+                onChange={handleLoginBgChange}
+              />
+            </label>
+            <p className="text-[10px] text-gray-400">PNG, JPG o WebP. Máx 10MB. Recomendado: 1920×1080.</p>
           </div>
 
           <div className="space-y-4 border-t border-gray-100 dark:border-gray-700 pt-6">
