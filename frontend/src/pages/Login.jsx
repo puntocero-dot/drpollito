@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext'
 import { Mail, Lock, Eye, EyeOff, AlertCircle } from 'lucide-react'
 import api from '../services/api'
 
-const DEFAULT_BG = 'https://images.unsplash.com/photo-1631815588090-d4bfec5b1ccb?w=1920&q=80'
+const DEFAULT_BG = '/Dr_Beltran.jpg'
 
 export default function Login() {
   const [email, setEmail] = useState('')
